@@ -1,0 +1,129 @@
+---
+title: Quickstart
+description: Make your first API call and send a WhatsApp message in under 2 minutes.
+---
+
+## 1. Get your API key
+
+Log in to the [WhatsRB Dashboard](https://whatsrb.com/dashboard), go to **Settings → API Keys**, and create a new key.
+
+```
+wrb_live_xxxxxxxxxxxxx
+```
+
+## 2. List your business accounts
+
+Fetch your connected WhatsApp Business accounts to get an account ID:
+
+<CodeGroup>
+```bash cURL
+curl https://whatsrb.com/api/v1/business_accounts \
+  -H "Authorization: Bearer wrb_live_xxx"
+```
+
+```ruby Ruby
+require "whatsrb_cloud"
+
+client = WhatsrbCloud::Client.new(api_key: "wrb_live_xxx")
+accounts = client.business_accounts.list
+account_id = accounts.data.first.id
+```
+</CodeGroup>
+
+Response:
+
+```json
+{
+  "data": [
+    {
+      "id": "acc_01hx...",
+      "business_name": "Acme Corp",
+      "phone_number": "+33612345678",
+      "status": "active"
+    }
+  ],
+  "meta": { "total": 1, "plan_limit": 5 }
+}
+```
+
+## 3. Send a message
+
+Use the account ID from the previous step:
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://whatsrb.com/api/v1/business_accounts/acc_01hx.../messages \
+  -H "Authorization: Bearer wrb_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "+33699887766",
+    "type": "text",
+    "text": "Hello from WhatsRB! 👋"
+  }'
+```
+
+```ruby Ruby
+account.messages.send_text(
+  to: "+33699887766",
+  text: "Hello from WhatsRB! 👋"
+)
+```
+</CodeGroup>
+
+Response:
+
+```json
+{
+  "data": {
+    "id": "msg_01hz...",
+    "to": "+33699887766",
+    "type": "text",
+    "status": "sent",
+    "created_at": "2025-01-01T12:00:00Z"
+  }
+}
+```
+
+## 4. Track delivery
+
+Message status updates are pushed via webhooks. Register an endpoint:
+
+```bash
+curl -X POST https://whatsrb.com/api/v1/webhooks \
+  -H "Authorization: Bearer wrb_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://yourapp.com/webhooks/whatsrb",
+    "events": ["message.sent", "message.delivered", "message.read", "message.failed"]
+  }'
+```
+
+WhatsRB will POST a JSON payload to your URL for each event:
+
+```json
+{
+  "event": "message.delivered",
+  "data": {
+    "message_id": "msg_01hz...",
+    "to": "+33699887766",
+    "delivered_at": "2025-01-01T12:00:05Z"
+  }
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Send a template" icon="layout-template" href="/api-reference/overview">
+    Use pre-approved templates to message users outside the 24h window.
+  </Card>
+  <Card title="Webhook events" icon="webhook" href="/guides/webhooks">
+    See the full list of events and payload formats.
+  </Card>
+  <Card title="Error handling" icon="triangle-alert" href="/guides/error-handling">
+    Understand error codes and implement retries.
+  </Card>
+  <Card title="Ruby SDK" icon="gem" href="/sdks/ruby/overview">
+    Use the official Ruby client for a better developer experience.
+  </Card>
+</CardGroup>
