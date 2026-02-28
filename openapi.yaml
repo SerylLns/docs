@@ -59,8 +59,13 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
 
     post:
-      summary: Create a business account
-      description: Manually create a business account using an existing WABA ID and access token.
+      summary: Create a business account (manual)
+      description: |
+        Manually create a business account using existing Meta credentials (WABA ID + access token).
+
+        **This is the exception flow.** The recommended way to connect an account is via the [embedded signup flow](/api-reference/overview) (`POST /business_accounts/connect`), which handles OAuth and webhook configuration automatically.
+
+        > ⚠️ Manual accounts can only **send** messages out of the box. To also **receive** incoming messages, you must configure your Meta app's webhook manually. See [Meta Webhook Setup](https://readme.whatsrb.com/guides/meta-webhook-setup).
       tags: [Business Accounts]
       requestBody:
         required: true
