@@ -86,30 +86,49 @@ Response:
 
 ## 4. Track delivery
 
-Message status updates are pushed via webhooks. Register an endpoint:
+Message status updates are pushed via webhooks. Register an endpoint (URL must be HTTPS):
 
 ```bash
 curl -X POST https://whatsrb.com/api/v1/webhooks \
   -H "Authorization: Bearer wrb_live_xxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "url": "https://yourapp.com/webhooks/whatsrb",
-    "events": ["message.sent", "message.delivered", "message.read", "message.failed"]
+    "webhook": {
+      "url": "https://yourapp.com/webhooks/whatsrb",
+      "events": ["message.received", "message.status", "message.failed"]
+    }
   }'
 ```
 
-WhatsRB will POST a JSON payload to your URL for each event:
+The response includes a `secret` (shown only once) for verifying payloads:
 
 ```json
 {
-  "event": "message.delivered",
   "data": {
-    "message_id": "msg_01hz...",
-    "to": "+33699887766",
-    "delivered_at": "2025-01-01T12:00:05Z"
+    "id": 1,
+    "url": "https://yourapp.com/webhooks/whatsrb",
+    "events": ["message.received", "message.status", "message.failed"],
+    "active": true,
+    "secret": "whsec_xxxxxxxxxxxx"
   }
 }
 ```
+
+WhatsRB will POST to your URL for each matching event:
+
+```json
+{
+  "event": "message.status",
+  "data": { ... },
+  "timestamp": "2025-01-01T12:00:05Z"
+}
+```
+
+Verify the request with the `X-Webhook-Signature` header and your secret. See [Webhooks](/guides/webhooks) for the full event list and signature verification.
+
+<Info>
+  **Supported events:** `message.received` · `message.status` · `message.failed` · `session.connected` · `session.disconnected` · `session.failed` · `quota.warning` · `quota.exceeded`
+</Info>
 
 ## Next steps
 
