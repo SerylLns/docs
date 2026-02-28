@@ -176,7 +176,7 @@ paths:
                       example: "+33612345678"
                     message_type:
                       type: string
-                      enum: [text, template]
+                      enum: [text, template, image, video, audio, document]
                     content:
                       type: string
                       description: Message text (required for `message_type=text`)
@@ -539,7 +539,7 @@ paths:
               properties:
                 status:
                   type: string
-                  enum: [pending, qr_ready, connected, disconnected, failed]
+                  enum: [connecting, qr_pending, connected, disconnected]
                 phone_number: { type: string, nullable: true }
                 qr_code: { type: string, nullable: true, description: Base64-encoded QR code }
                 status_reason: { type: string, nullable: true }
@@ -844,11 +844,13 @@ paths:
                         properties:
                           used: { type: integer }
                           limit: { type: integer }
+                          remaining: { type: integer }
                       daily_session_messages:
                         type: object
                         properties:
                           used: { type: integer }
                           limit: { type: integer }
+                          remaining: { type: integer }
                       send_enabled: { type: boolean }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -965,7 +967,7 @@ components:
         id: { type: string }
         direction: { type: string, enum: [outbound] }
         to: { type: string }
-        message_type: { type: string, enum: [text, template] }
+        message_type: { type: string, enum: [text, template, image, video, audio, document] }
         content: { type: string, nullable: true }
         status: { type: string, enum: [queued, sent, delivered, read, failed] }
         wamid: { type: string, nullable: true }
@@ -996,7 +998,7 @@ components:
       properties:
         id: { type: string }
         name: { type: string }
-        status: { type: string, enum: [pending, qr_ready, connected, disconnected, failed] }
+        status: { type: string, enum: [connecting, qr_pending, connected, disconnected] }
         status_reason: { type: string, nullable: true }
         phone_number: { type: string, nullable: true }
         qr_code: { type: string, nullable: true }
