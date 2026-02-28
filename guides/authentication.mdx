@@ -14,16 +14,13 @@ Authorization: Bearer wrb_live_xxxxxxxxxxxxx
 ### Creating an API key
 
 1. Log in to the [WhatsRB Dashboard](https://whatsrb.com/dashboard)
-2. Navigate to **API Keys**
+2. Navigate to **Settings → API Keys**
 3. Click **Create API Key**
 4. Copy and store the key securely — it won't be shown again
 
-### Key prefixes
+### Key format
 
-| Prefix | Environment |
-|--------|------------|
-| `wrb_live_` | Production |
-| `wrb_test_` | Sandbox |
+All API keys start with the `wrb_live_` prefix.
 
 <Warning>
   Never commit API keys to source control. Use environment variables instead.
@@ -31,10 +28,20 @@ Authorization: Bearer wrb_live_xxxxxxxxxxxxx
 
 ## Rate Limits
 
-Rate limits depend on your plan. Check the [API Reference](/api-reference/overview) for details.
+Rate limits are per plan and apply to messages per minute.
 
-| Plan | Requests/minute |
-|------|----------------|
-| Developer | 60 |
-| Pro | 300 |
-| Scale | 1,000 |
+| Plan | Messages / minute |
+|------|------------------|
+| Free | 10 |
+| Pro | 60 |
+| Scale | 120 |
+
+Rate limit headers are included in every response:
+
+```
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 58
+X-RateLimit-Reset: 1735689600
+```
+
+When you hit the limit, the API returns `429 Too Many Requests`.

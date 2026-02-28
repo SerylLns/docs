@@ -7,15 +7,23 @@ description: Configure the WhatsRB Cloud Ruby SDK.
 
 ```ruby
 WhatsrbCloud.configure do |c|
-  c.api_key = ENV["WHATSRB_API_KEY"]
+  c.api_key  = ENV["WHATSRB_API_KEY"]
+  c.base_url = "https://api.whatsrb.com"  # default
+  c.timeout  = 30                          # seconds, default
 end
 ```
 
 ## Per-client configuration
 
 ```ruby
-client = WhatsrbCloud::Client.new(api_key: "wrb_live_xxx")
+client = WhatsrbCloud::Client.new(
+  api_key:  "wrb_live_xxx",
+  base_url: "https://api.whatsrb.com",
+  timeout:  30
+)
 ```
+
+Per-client options override the global configuration.
 
 ## Rails initializer
 
@@ -27,11 +35,10 @@ WhatsrbCloud.configure do |c|
 end
 ```
 
-## Options
+## Available options
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `api_key` | — | Your WhatsRB API key (required) |
-| `base_url` | `https://whatsrb.com/api/v1` | API base URL |
-| `max_retries` | `2` | Max retries on 5xx/429 errors |
+| `base_url` | `https://api.whatsrb.com` | API base URL |
 | `timeout` | `30` | Request timeout in seconds |

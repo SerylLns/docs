@@ -9,35 +9,58 @@ description: Understand API error responses and how to handle them.
 |------|---------|
 | `200` | Success |
 | `201` | Created |
-| `400` | Bad request — check your parameters |
+| `204` | No content (e.g. after DELETE) |
+| `400` | Bad request — malformed JSON or missing required parameter |
 | `401` | Unauthorized — invalid or missing API key |
 | `404` | Resource not found |
-| `422` | Validation error |
-| `429` | Rate limit exceeded |
-| `500` | Internal server error |
+| `409` | Conflict — e.g. account not connected |
+| `422` | Validation error — check `details` for field errors |
+| `429` | Rate limit or daily quota exceeded |
+| `502` | Meta API error |
 
 ## Error Response Format
 
+All errors return a JSON object with an `error` key:
+
 ```json
 {
-  "error": {
-    "type": "validation_error",
-    "message": "Phone number is required",
-    "param": "to"
+  "error": "Business account not found"
+}
+```
+
+Validation errors include a `details` object with per-field messages:
+
+```json
+{
+  "error": "Validation failed",
+  "details": {
+    "url": ["must be HTTPS", "can't be blank"],
+    "email": ["is invalid"]
   }
+}
+```
+
+Plan limit errors on `free` plan include an upgrade URL:
+
+```json
+{
+  "error": "free_plan_limit_reached",
+  "upgrade_url": "https://whatsrb.com/pricing"
 }
 ```
 
 ## Retry Strategy
 
-For `429` and `5xx` errors, implement exponential backoff:
+For `429` and `5xx` errors, implement exponential backoff. Start with a 1s delay and double it each attempt:
 
 ```ruby
-# The Ruby SDK handles retries automatically
-WhatsrbCloud.configure do |c|
-  c.api_key = "wrb_live_xxx"
-  c.max_retries = 3
+retries = 0
+begin
+  client.business_messages(account_id).create(...)
+rescue WhatsrbCloud::RateLimitError, WhatsrbCloud::ServerError => e
+  raise if retries >= 3
+  sleep(2 ** retries)
+  retries += 1
+  retry
 end
 ```
-
-For other languages, retry with delays of 1s, 2s, 4s, etc.
