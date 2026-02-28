@@ -1,0 +1,52 @@
+---
+title: Webhooks
+description: Receive real-time events for message statuses and incoming messages.
+---
+
+## Overview
+
+WhatsRB Cloud sends webhook events to your configured endpoint for:
+
+- **Message statuses** — `sent`, `delivered`, `read`, `failed`
+- **Incoming messages** — text, media, reactions, and more
+
+## Setup
+
+1. Go to **Webhook Endpoints** in the dashboard
+2. Add your endpoint URL
+3. WhatsRB will send a verification request to confirm ownership
+
+## Payload format
+
+```json
+{
+  "event": "message.delivered",
+  "timestamp": "2026-02-28T12:00:00Z",
+  "data": {
+    "message_id": "wamid.xxxxx",
+    "status": "delivered",
+    "recipient": "+33612345678"
+  }
+}
+```
+
+## Signature verification
+
+Every webhook request includes an `X-WhatsRB-Signature` header. Verify it to ensure the request comes from WhatsRB.
+
+<Tabs>
+  <Tab title="Ruby">
+    ```ruby
+    WhatsrbCloud::Webhook.verify!(
+      payload: request.body.read,
+      signature: request.headers["X-WhatsRB-Signature"],
+      secret: ENV["WHATSRB_WEBHOOK_SECRET"]
+    )
+    ```
+  </Tab>
+  <Tab title="Any language">
+    ```
+    HMAC-SHA256(webhook_secret, raw_body) == X-WhatsRB-Signature
+    ```
+  </Tab>
+</Tabs>

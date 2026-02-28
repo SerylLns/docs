@@ -1,0 +1,40 @@
+---
+title: Authentication
+description: How to authenticate with the WhatsRB Cloud API.
+---
+
+## API Keys
+
+All API requests require a Bearer token in the `Authorization` header.
+
+```bash
+Authorization: Bearer wrb_live_xxxxxxxxxxxxx
+```
+
+### Creating an API key
+
+1. Log in to the [WhatsRB Dashboard](https://whatsrb.com/dashboard)
+2. Navigate to **API Keys**
+3. Click **Create API Key**
+4. Copy and store the key securely — it won't be shown again
+
+### Key prefixes
+
+| Prefix | Environment |
+|--------|------------|
+| `wrb_live_` | Production |
+| `wrb_test_` | Sandbox |
+
+<Warning>
+  Never commit API keys to source control. Use environment variables instead.
+</Warning>
+
+## Rate Limits
+
+Rate limits depend on your plan. Check the [API Reference](/api-reference/overview) for details.
+
+| Plan | Requests/minute |
+|------|----------------|
+| Developer | 60 |
+| Pro | 300 |
+| Scale | 1,000 |

@@ -1,0 +1,37 @@
+---
+title: Configuration
+description: Configure the WhatsRB Cloud Ruby SDK.
+---
+
+## Global configuration
+
+```ruby
+WhatsrbCloud.configure do |c|
+  c.api_key = ENV["WHATSRB_API_KEY"]
+end
+```
+
+## Per-client configuration
+
+```ruby
+client = WhatsrbCloud::Client.new(api_key: "wrb_live_xxx")
+```
+
+## Rails initializer
+
+Create `config/initializers/whatsrb.rb`:
+
+```ruby
+WhatsrbCloud.configure do |c|
+  c.api_key = Rails.application.credentials.whatsrb_api_key
+end
+```
+
+## Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `api_key` | — | Your WhatsRB API key (required) |
+| `base_url` | `https://whatsrb.com/api/v1` | API base URL |
+| `max_retries` | `2` | Max retries on 5xx/429 errors |
+| `timeout` | `30` | Request timeout in seconds |

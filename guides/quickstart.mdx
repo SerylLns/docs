@@ -1,0 +1,62 @@
+---
+title: Quickstart
+description: Send your first WhatsApp message in 5 minutes.
+---
+
+## Prerequisites
+
+- A WhatsRB Cloud account with an API key
+- A connected WhatsApp Business Account
+
+## 1. Get your API key
+
+Log in to the [WhatsRB Dashboard](https://whatsrb.com/dashboard) and navigate to **API Keys**. Create a new key and copy it.
+
+## 2. Send a message
+
+<Tabs>
+  <Tab title="cURL">
+    ```bash
+    curl -X POST https://whatsrb.com/api/v1/business_accounts/:id/messages \
+      -H "Authorization: Bearer YOUR_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "to": "+33612345678",
+        "type": "text",
+        "text": "Hello from WhatsRB!"
+      }'
+    ```
+  </Tab>
+  <Tab title="Ruby">
+    ```ruby
+    require "whatsrb_cloud"
+
+    WhatsrbCloud.configure do |c|
+      c.api_key = "wrb_live_xxx"
+    end
+
+    client  = WhatsrbCloud::Client.new
+    account = client.business_accounts.list.data.first
+
+    account.send_text(
+      to: "+33612345678",
+      text: "Hello from WhatsRB!"
+    )
+    ```
+  </Tab>
+</Tabs>
+
+## 3. Check delivery status
+
+Message statuses are delivered via [webhooks](/guides/webhooks). You'll receive events for `sent`, `delivered`, `read`, and `failed`.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/guides/authentication">
+    Learn about API key management and scopes.
+  </Card>
+  <Card title="Templates" icon="file-text" href="/sdks/ruby/configuration">
+    Send pre-approved message templates.
+  </Card>
+</CardGroup>

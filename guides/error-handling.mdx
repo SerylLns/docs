@@ -1,0 +1,43 @@
+---
+title: Error Handling
+description: Understand API error responses and how to handle them.
+---
+
+## HTTP Status Codes
+
+| Code | Meaning |
+|------|---------|
+| `200` | Success |
+| `201` | Created |
+| `400` | Bad request — check your parameters |
+| `401` | Unauthorized — invalid or missing API key |
+| `404` | Resource not found |
+| `422` | Validation error |
+| `429` | Rate limit exceeded |
+| `500` | Internal server error |
+
+## Error Response Format
+
+```json
+{
+  "error": {
+    "type": "validation_error",
+    "message": "Phone number is required",
+    "param": "to"
+  }
+}
+```
+
+## Retry Strategy
+
+For `429` and `5xx` errors, implement exponential backoff:
+
+```ruby
+# The Ruby SDK handles retries automatically
+WhatsrbCloud.configure do |c|
+  c.api_key = "wrb_live_xxx"
+  c.max_retries = 3
+end
+```
+
+For other languages, retry with delays of 1s, 2s, 4s, etc.

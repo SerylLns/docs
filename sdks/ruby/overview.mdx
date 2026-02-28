@@ -1,0 +1,31 @@
+---
+title: Ruby SDK
+description: Official Ruby client for WhatsRB Cloud.
+---
+
+## Overview
+
+The `whatsrb_cloud` gem is an idiomatic Ruby client for the WhatsRB Cloud API. It wraps all REST endpoints with a clean, chainable interface.
+
+```ruby
+client = WhatsrbCloud::Client.new(api_key: "wrb_live_xxx")
+account = client.business_accounts.list.data.first
+
+account.send_text(to: "+33612345678", text: "Hello!")
+```
+
+## Requirements
+
+- Ruby 3.1+
+- Works with Rails, Sinatra, or plain Ruby
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/sdks/ruby/installation">
+    Add the gem to your project.
+  </Card>
+  <Card title="Configuration" icon="settings" href="/sdks/ruby/configuration">
+    API keys, retries, and options.
+  </Card>
+</CardGroup>

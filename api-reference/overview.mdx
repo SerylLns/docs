@@ -1,0 +1,59 @@
+---
+title: API Overview
+description: WhatsRB Cloud REST API reference.
+---
+
+## Base URL
+
+```
+https://whatsrb.com/api/v1
+```
+
+## Authentication
+
+Include your API key in the `Authorization` header:
+
+```bash
+Authorization: Bearer wrb_live_xxxxxxxxxxxxx
+```
+
+## Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Business Accounts" icon="building-2">
+    `GET /business_accounts` — List accounts
+
+    `POST /business_accounts` — Connect an account
+
+    `GET /business_accounts/:id` — Get account details
+
+    `DELETE /business_accounts/:id` — Disconnect
+  </Card>
+  <Card title="Messages" icon="send">
+    `POST /business_accounts/:id/messages` — Send a message
+
+    `GET /business_accounts/:id/messages` — List messages
+
+    `GET /business_accounts/:id/messages/:id` — Get message
+  </Card>
+  <Card title="Templates" icon="file-text">
+    `GET /business_accounts/:id/templates` — List templates
+
+    `POST /business_accounts/:id/templates` — Create template
+
+    `POST /business_accounts/:id/templates/sync` — Sync from Meta
+
+    `DELETE /business_accounts/:id/templates/:id` — Delete
+  </Card>
+  <Card title="Webhooks" icon="webhook">
+    `GET /webhooks` — List endpoints
+
+    `POST /webhooks` — Create endpoint
+
+    `DELETE /webhooks/:id` — Delete endpoint
+  </Card>
+</CardGroup>
+
+<Info>
+  Full OpenAPI spec with interactive try-it console coming soon.
+</Info>

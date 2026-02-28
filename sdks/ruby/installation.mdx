@@ -1,0 +1,31 @@
+---
+title: Installation
+description: Install the WhatsRB Cloud Ruby SDK.
+---
+
+## Bundler (recommended)
+
+Add to your `Gemfile`:
+
+```ruby
+gem "whatsrb_cloud"
+```
+
+Then run:
+
+```bash
+bundle install
+```
+
+## Manual install
+
+```bash
+gem install whatsrb_cloud
+```
+
+## Verify installation
+
+```ruby
+require "whatsrb_cloud"
+puts WhatsrbCloud::VERSION
+```
