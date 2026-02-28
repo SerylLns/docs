@@ -1,0 +1,107 @@
+---
+title: Sessions
+description: Manage WhatsApp Web sessions (session-based channel).
+---
+
+Sessions use WhatsApp Web under the hood — no Meta approval required, but the phone must stay connected.
+
+## List sessions
+
+```ruby
+result = client.sessions.list
+result.data  # => Array of Session objects
+result.meta  # => { "total" => 2 }
+```
+
+## Create a session
+
+```ruby
+session = client.sessions.create(name: "My Session")
+session.id      # => "ses_01hx..."
+session.status  # => "qr_pending"
+session.qr_code # => "data:image/png;base64,..."
+```
+
+## Scan QR and wait for connection
+
+```ruby
+session = client.sessions.create(name: "Production")
+
+# Display QR to the user, poll until connected
+session.wait_for_qr(timeout: 60, interval: 2) do |qr_code|
+  puts "Scan this QR: #{qr_code}"
+end
+
+session.connected?   # => true
+session.phone_number # => "+33612345678"
+```
+
+## Retrieve a session
+
+```ruby
+session = client.sessions.retrieve("ses_01hx...")
+session.status       # => "connected"
+session.phone_number # => "+33612345678"
+```
+
+## Reload session state
+
+```ruby
+session.reload
+session.refresh  # alias
+```
+
+## Delete a session
+
+```ruby
+client.sessions.delete("ses_01hx...")  # => true
+```
+
+## Send messages
+
+```ruby
+session = client.sessions.list.data.first
+
+# Text
+session.send_message(to: "+33699887766", text: "Hello!")
+
+# Image
+session.send_image(to: "+33699887766", url: "https://example.com/image.png")
+
+# Video
+session.send_video(to: "+33699887766", url: "https://example.com/video.mp4")
+
+# Audio
+session.send_audio(to: "+33699887766", url: "https://example.com/audio.ogg")
+
+# Document
+session.send_document(to: "+33699887766", url: "https://example.com/file.pdf")
+
+# Location
+session.send_location(to: "+33699887766", latitude: 48.8566, longitude: 2.3522)
+
+# Contact
+session.send_contact(to: "+33699887766", name: "John Doe", phone: "+33611223344")
+```
+
+## Access the messages resource
+
+```ruby
+messages = session.messages
+# or:
+messages = client.messages(session.id)
+
+result = messages.list
+msg    = messages.retrieve("msg_01hz...")
+```
+
+## Session attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `id` | String | Session ID |
+| `name` | String | Session label |
+| `status` | String | `qr_pending`, `connected`, `disconnected`, `failed` |
+| `phone_number` | String | Connected phone number |
+| `qr_code` | String | Base64 QR image (while `qr_pending`) |
+| `connected?` | Boolean | Whether session is active |

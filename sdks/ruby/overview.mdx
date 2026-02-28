@@ -1,31 +1,103 @@
 ---
 title: Ruby SDK
-description: Official Ruby client for WhatsRB Cloud.
+description: Official Ruby client for the WhatsRB Cloud API.
 ---
 
-## Overview
+## Installation
 
-The `whatsrb_cloud` gem is an idiomatic Ruby client for the WhatsRB Cloud API. It wraps all REST endpoints with a clean, chainable interface.
+```ruby
+# Gemfile
+gem "whatsrb_cloud"
+```
+
+```bash
+bundle install
+```
+
+## Setup
+
+```ruby
+require "whatsrb_cloud"
+
+WhatsrbCloud.configure do |c|
+  c.api_key = ENV["WHATSRB_API_KEY"]
+end
+
+client = WhatsrbCloud::Client.new
+```
+
+Or pass the key directly:
 
 ```ruby
 client = WhatsrbCloud::Client.new(api_key: "wrb_live_xxx")
-account = client.business_accounts.list.data.first
-
-account.send_text(to: "+33612345678", text: "Hello!")
 ```
 
-## Requirements
+## Quick example
 
-- Ruby 3.1+
-- Works with Rails, Sinatra, or plain Ruby
+```ruby
+# List your business accounts
+accounts = client.business_accounts.list
+account  = accounts.data.first
+
+# Send a text message
+account.send_text(to: "+33612345678", text: "Hello!")
+
+# Send a template
+account.send_template(
+  to: "+33612345678",
+  template_name: "order_confirmation",
+  template_language: "en_US"
+)
+```
 
 ## Resources
 
 <CardGroup cols={2}>
-  <Card title="Installation" icon="download" href="/sdks/ruby/installation">
-    Add the gem to your project.
+  <Card title="Business Accounts" icon="building-2" href="/sdks/ruby/business-accounts">
+    Connect and manage WhatsApp Business accounts.
   </Card>
-  <Card title="Configuration" icon="settings" href="/sdks/ruby/configuration">
-    API keys, retries, and options.
+  <Card title="Business Messages" icon="message-circle" href="/sdks/ruby/business-messages">
+    Send text and template messages via the Business API.
+  </Card>
+  <Card title="Templates" icon="layout-template" href="/sdks/ruby/templates">
+    Create, sync and manage message templates.
+  </Card>
+  <Card title="Sessions" icon="smartphone" href="/sdks/ruby/sessions">
+    Manage WhatsApp Web sessions.
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/sdks/ruby/webhooks">
+    Register endpoints and verify signatures.
   </Card>
 </CardGroup>
+
+## Error handling
+
+All SDK methods raise typed exceptions:
+
+```ruby
+begin
+  account.send_text(to: "+33612345678", text: "Hello!")
+rescue WhatsrbCloud::AuthenticationError => e
+  # Invalid API key
+rescue WhatsrbCloud::NotFoundError => e
+  # Account not found
+rescue WhatsrbCloud::RateLimitError => e
+  puts "Retry after #{e.retry_after}s"
+rescue WhatsrbCloud::ValidationError => e
+  # Invalid parameters
+rescue WhatsrbCloud::ServerError => e
+  # 5xx from the API
+rescue WhatsrbCloud::Error => e
+  # Base class for all SDK errors
+end
+```
+
+| Exception | HTTP status |
+|-----------|------------|
+| `AuthenticationError` | 401 |
+| `ForbiddenError` | 403 |
+| `NotFoundError` | 404 |
+| `ConflictError` | 409 |
+| `ValidationError` | 422 |
+| `RateLimitError` | 429 |
+| `ServerError` | 5xx |

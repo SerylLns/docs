@@ -1,0 +1,84 @@
+---
+title: Business Messages
+description: Send messages via the WhatsApp Business API.
+---
+
+Access messages through a `BusinessAccount` object or directly via the client.
+
+## Send a text message
+
+```ruby
+account = client.business_accounts.list.data.first
+
+msg = account.send_text(to: "+33699887766", text: "Hello!")
+msg.id      # => "msg_01hz..."
+msg.status  # => "queued"
+```
+
+## Send a template message
+
+```ruby
+msg = account.send_template(
+  to: "+33699887766",
+  template_name: "order_confirmation",
+  template_language: "en_US"
+)
+```
+
+## Using the messages resource directly
+
+```ruby
+messages = client.business_messages(account.id)
+
+msg = messages.create(
+  to: "+33699887766",
+  message_type: "text",
+  content: "Hello!"
+)
+```
+
+## List messages
+
+```ruby
+result = account.messages.list
+result.data  # => Array of Message objects
+result.meta  # => { "total" => 42 }
+```
+
+Only returns the last 100 messages, ordered newest first.
+
+## Retrieve a message
+
+```ruby
+msg = account.messages.retrieve("msg_01hz...")
+msg.status       # => "delivered"
+msg.delivered_at # => 2026-01-01 12:00:05 UTC
+```
+
+## Message attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `id` | String | WhatsRB message ID |
+| `direction` | String | `outbound` |
+| `to` | String | Recipient phone number |
+| `message_type` | String | `text` or `template` |
+| `content` | String | Message text |
+| `template_name` | String | Template name (if template) |
+| `template_language` | String | Template language (if template) |
+| `status` | String | `queued`, `sent`, `delivered`, `read`, `failed` |
+| `wamid` | String | WhatsApp message ID (set after delivery) |
+| `error_message` | String | Error detail (if failed) |
+| `sent_at` | Time | When sent to Meta |
+| `delivered_at` | Time | When delivered to recipient |
+| `read_at` | Time | When read by recipient |
+
+## Status helpers
+
+```ruby
+msg.queued?    # => true
+msg.sent?      # => false
+msg.delivered? # => false
+msg.read?      # => false
+msg.failed?    # => false
+```

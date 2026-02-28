@@ -1,0 +1,98 @@
+---
+title: Webhooks
+description: Manage webhook endpoints and verify incoming signatures.
+---
+
+## List endpoints
+
+```ruby
+result = client.webhooks.list
+result.data  # => Array of Webhook objects
+```
+
+## Create an endpoint
+
+```ruby
+webhook = client.webhooks.create(
+  url:    "https://yourapp.com/webhooks/whatsrb",
+  events: ["message.received", "message.status", "message.failed"]
+)
+
+webhook.id      # => 1
+webhook.url     # => "https://yourapp.com/webhooks/whatsrb"
+webhook.events  # => ["message.received", "message.status", "message.failed"]
+webhook.secret  # => "whsec_xxx"  — only present on create, store it now!
+webhook.active? # => true
+```
+
+Passing no `events` subscribes to all events.
+
+## Retrieve an endpoint
+
+```ruby
+webhook = client.webhooks.retrieve(1)
+```
+
+## Update an endpoint
+
+```ruby
+webhook = client.webhooks.update(1,
+  url:    "https://yourapp.com/new-path",
+  active: false,
+  events: ["message.failed"]
+)
+```
+
+## Delete an endpoint
+
+```ruby
+client.webhooks.delete(1)  # => true
+```
+
+## Verify incoming signatures
+
+Every webhook request includes `X-Webhook-Signature` and `X-Webhook-Event` headers. Verify the signature before processing:
+
+```ruby
+# Rails controller example
+def receive
+  payload   = request.body.read
+  signature = request.headers["X-Webhook-Signature"]
+  secret    = ENV["WHATSRB_WEBHOOK_SECRET"]
+
+  unless WhatsrbCloud::WebhookSignature.verify?(payload: payload, signature: signature, secret: secret)
+    return head :unauthorized
+  end
+
+  event = JSON.parse(payload)
+  # { "event" => "message.status", "data" => {...}, "timestamp" => "..." }
+
+  handle_event(event)
+  head :ok
+end
+```
+
+The signature format is `sha256=<HMAC-SHA256(secret, raw_body)>`.
+
+## Webhook attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `id` | Integer | Endpoint ID |
+| `url` | String | Your HTTPS endpoint URL |
+| `events` | Array | Subscribed event types |
+| `active?` | Boolean | Whether endpoint is active |
+| `secret` | String | Signing secret (only on create) |
+
+## Supported events
+
+| Event | When |
+|-------|------|
+| `message.received` | Inbound message received |
+| `message.status` | Message status updated |
+| `message.failed` | Message failed to send |
+| `session.connected` | Session connected |
+| `session.disconnected` | Session disconnected |
+| `session.failed` | Session connection failed |
+| `quota.warning` | Approaching daily quota |
+| `quota.exceeded` | Daily quota exceeded |

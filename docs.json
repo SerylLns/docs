@@ -78,6 +78,16 @@
               "sdks/ruby/installation",
               "sdks/ruby/configuration"
             ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "sdks/ruby/business-accounts",
+              "sdks/ruby/business-messages",
+              "sdks/ruby/templates",
+              "sdks/ruby/sessions",
+              "sdks/ruby/webhooks"
+            ]
           }
         ]
       }

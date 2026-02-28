@@ -1,0 +1,115 @@
+---
+title: Templates
+description: Create, sync, and manage WhatsApp message templates.
+---
+
+Access templates through a `BusinessAccount` or directly via the client.
+
+```ruby
+account   = client.business_accounts.list.data.first
+templates = account.templates
+# or:
+templates = client.templates(account.id)
+```
+
+## List templates
+
+```ruby
+result = templates.list
+result.data  # => Array of Template objects
+
+# Filter by status or category
+result = templates.list(status: "approved")
+result = templates.list(status: "approved", category: "MARKETING")
+```
+
+Status values: `approved`, `pending`, `rejected`.
+
+## Find by name
+
+```ruby
+tpl = templates.find_by_name("order_confirmation")
+tpl&.approved?  # => true
+```
+
+## Retrieve a template
+
+```ruby
+tpl = templates.retrieve("tpl_01hx...")
+tpl.name     # => "order_confirmation"
+tpl.status   # => "approved"
+tpl.language # => "en_US"
+tpl.category # => "UTILITY"
+```
+
+## Create a template
+
+```ruby
+tpl = templates.create(
+  name:     "order_confirmation",
+  category: "UTILITY",
+  language: "en_US",
+  components: [
+    {
+      type: "BODY",
+      text: "Your order {{1}} has been confirmed."
+    }
+  ]
+)
+tpl.status  # => "pending"  (awaiting Meta approval)
+```
+
+## Sync from Meta
+
+Pulls the latest template statuses from Meta and updates your local records:
+
+```ruby
+result = templates.sync
+result.data  # => Array of synced Template objects
+```
+
+## Clone a template
+
+```ruby
+clone = templates.clone("tpl_01hx...")
+clone.name  # => "order_confirmation_copy"
+```
+
+## Send a test message
+
+```ruby
+msg = templates.send_test(
+  "tpl_01hx...",
+  to: "+33699887766",
+  variables: ["ORDER-123"]
+)
+msg.status  # => "queued"
+```
+
+## Delete a template
+
+```ruby
+templates.delete("tpl_01hx...")  # => true
+```
+
+## Template attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `id` | String | WhatsRB template ID |
+| `meta_template_id` | String | Meta template ID |
+| `name` | String | Template name |
+| `category` | String | `UTILITY`, `MARKETING`, `AUTHENTICATION` |
+| `status` | String | `approved`, `pending`, `rejected` |
+| `language` | String | Language code (e.g. `en_US`) |
+| `header_type` | String | `TEXT`, `IMAGE`, `VIDEO`, `DOCUMENT` |
+| `components` | Array | Template components |
+| `rejection_reason` | String | Reason if rejected |
+
+## Status helpers
+
+```ruby
+tpl.approved?  # => true
+tpl.pending?   # => false
+tpl.rejected?  # => false
+```
