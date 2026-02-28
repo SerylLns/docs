@@ -2,7 +2,11 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "WhatsRB Cloud",
-  "custom_domain": "readme.whatsrb.com",
+  "seo": {
+    "metatags": {
+      "canonical": "https://readme.whatsrb.com"
+    }
+  },
   "description": "The easiest way to integrate the official WhatsApp Business API in Ruby.",
   "colors": {
     "primary": "#22C55E",
