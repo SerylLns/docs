@@ -56,17 +56,12 @@ curl -X POST https://whatsrb.com/api/v1/business_accounts/acc_01hx.../messages \
   -H "Authorization: Bearer wrb_live_xxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "to": "+33699887766",
-    "type": "text",
-    "text": "Hello from WhatsRB! 👋"
+    "message": {
+      "to": "+33699887766",
+      "message_type": "text",
+      "content": "Hello from WhatsRB! 👋"
+    }
   }'
-```
-
-```ruby Ruby
-account.messages.send_text(
-  to: "+33699887766",
-  text: "Hello from WhatsRB! 👋"
-)
 ```
 </CodeGroup>
 
@@ -76,9 +71,15 @@ Response:
 {
   "data": {
     "id": "msg_01hz...",
+    "direction": "outbound",
     "to": "+33699887766",
-    "type": "text",
-    "status": "sent",
+    "message_type": "text",
+    "content": "Hello from WhatsRB! 👋",
+    "status": "queued",
+    "wamid": null,
+    "sent_at": null,
+    "delivered_at": null,
+    "read_at": null,
     "created_at": "2025-01-01T12:00:00Z"
   }
 }

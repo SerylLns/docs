@@ -729,11 +729,14 @@ paths:
                       items:
                         type: string
                         enum:
-                          - message.sent
-                          - message.delivered
-                          - message.read
-                          - message.failed
+                          - message.received
                           - message.status
+                          - message.failed
+                          - session.connected
+                          - session.disconnected
+                          - session.failed
+                          - quota.warning
+                          - quota.exceeded
       responses:
         "201":
           description: Created
