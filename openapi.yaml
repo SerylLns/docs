@@ -1,0 +1,1084 @@
+openapi: 3.1.0
+info:
+  title: WhatsRB Cloud API
+  version: 1.0.0
+  description: |
+    The WhatsRB Cloud API lets you send WhatsApp messages, manage templates,
+    configure webhooks, and monitor usage — from any language or platform.
+
+    **Base URL:** `https://whatsrb.com/api/v1`
+
+servers:
+  - url: https://whatsrb.com/api/v1
+    description: Production
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Business Accounts
+    description: Manage WhatsApp Business accounts connected via the official Meta API.
+  - name: Business Messages
+    description: Send and retrieve messages via the WhatsApp Business API.
+  - name: Templates
+    description: Create, sync, and manage message templates.
+  - name: Sessions
+    description: Manage WhatsApp Web sessions (session-based channel).
+  - name: Session Messages
+    description: Send and retrieve messages via WhatsApp Web sessions.
+  - name: Webhooks
+    description: Configure endpoints to receive real-time event notifications.
+  - name: Usage
+    description: Monitor your plan usage and message metrics.
+  - name: Connects
+    description: Track embedded signup connect requests.
+
+paths:
+  # ── Business Accounts ──────────────────────────────────────────────────────
+
+  /business_accounts:
+    get:
+      summary: List business accounts
+      tags: [Business Accounts]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/BusinessAccount" }
+                  meta:
+                    type: object
+                    properties:
+                      total: { type: integer }
+                      plan_limit: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+    post:
+      summary: Create a business account
+      description: Manually create a business account using an existing WABA ID and access token.
+      tags: [Business Accounts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [business_account]
+              properties:
+                business_account:
+                  type: object
+                  properties:
+                    waba_id: { type: string, description: WhatsApp Business Account ID }
+                    phone_number_id: { type: string, description: Meta phone number ID }
+                    business_name: { type: string }
+                    display_name: { type: string }
+                    phone_number: { type: string, example: "+33612345678" }
+                    meta_access_token: { type: string, description: Meta access token }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/BusinessAccount" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/PlanLimitReached" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /business_accounts/connect:
+    post:
+      summary: Start an embedded signup connect
+      description: |
+        Generates a short-lived connect URL for the WhatsApp embedded signup flow.
+        Use the returned URL to redirect your user to the Meta signup page.
+        Poll `GET /connects/{id}` to check completion.
+      tags: [Business Accounts]
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      url: { type: string, format: uri, example: "https://whatsrb.com/connect/TOKEN" }
+                      status: { type: string, enum: [pending] }
+                      expires_at: { type: string, format: date-time }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/PlanLimitReached" }
+
+  /business_accounts/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/ResourceId" }
+
+    get:
+      summary: Get a business account
+      tags: [Business Accounts]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/BusinessAccount" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+    delete:
+      summary: Delete a business account
+      tags: [Business Accounts]
+      responses:
+        "204": { description: No Content }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── Business Messages ──────────────────────────────────────────────────────
+
+  /business_accounts/{business_account_id}/messages:
+    parameters:
+      - name: business_account_id
+        in: path
+        required: true
+        schema: { type: string }
+        description: Business account ID
+
+    post:
+      summary: Send a message
+      tags: [Business Messages]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: object
+                  required: [to, message_type]
+                  properties:
+                    to:
+                      type: string
+                      description: Recipient phone number in E.164 format
+                      example: "+33612345678"
+                    message_type:
+                      type: string
+                      enum: [text, template]
+                    content:
+                      type: string
+                      description: Message text (required for `message_type=text`)
+                    template_name:
+                      type: string
+                      description: Template name (required for `message_type=template`)
+                    template_language:
+                      type: string
+                      description: Template language code
+                      example: en_US
+      responses:
+        "201":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/BusinessMessage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Account not connected
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/QuotaExceeded" }
+        "502":
+          description: Meta API error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+    get:
+      summary: List messages
+      tags: [Business Messages]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/BusinessMessage" }
+                  meta:
+                    type: object
+                    properties:
+                      total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /business_accounts/{business_account_id}/messages/{id}:
+    parameters:
+      - name: business_account_id
+        in: path
+        required: true
+        schema: { type: string }
+      - { $ref: "#/components/parameters/ResourceId" }
+
+    get:
+      summary: Get a message
+      tags: [Business Messages]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/BusinessMessage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── Templates ──────────────────────────────────────────────────────────────
+
+  /business_accounts/{business_account_id}/templates:
+    parameters:
+      - name: business_account_id
+        in: path
+        required: true
+        schema: { type: string }
+
+    get:
+      summary: List templates
+      tags: [Templates]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [approved, pending, rejected] }
+        - name: category
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Template" }
+                  meta:
+                    type: object
+                    properties:
+                      total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+    post:
+      summary: Create a template
+      description: Creates the template locally and submits it to Meta for approval.
+      tags: [Templates]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [template]
+              properties:
+                template:
+                  type: object
+                  required: [name, category, language]
+                  properties:
+                    name: { type: string }
+                    category:
+                      type: string
+                      enum: [MARKETING, UTILITY, AUTHENTICATION]
+                    language: { type: string, example: en_US }
+                    header_type:
+                      type: string
+                      enum: [TEXT, IMAGE, VIDEO, DOCUMENT]
+                      nullable: true
+                    components:
+                      type: object
+                      description: Template components (header, body, footer, buttons)
+                    variable_examples:
+                      type: object
+                      description: Example values for template variables
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Template" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /business_accounts/{business_account_id}/templates/sync:
+    parameters:
+      - name: business_account_id
+        in: path
+        required: true
+        schema: { type: string }
+
+    post:
+      summary: Sync templates from Meta
+      description: Fetches the latest templates from the Meta API and updates the local database.
+      tags: [Templates]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Template" }
+                  meta:
+                    type: object
+                    properties:
+                      total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /business_accounts/{business_account_id}/templates/{id}:
+    parameters:
+      - name: business_account_id
+        in: path
+        required: true
+        schema: { type: string }
+      - { $ref: "#/components/parameters/ResourceId" }
+
+    get:
+      summary: Get a template
+      tags: [Templates]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Template" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+    delete:
+      summary: Delete a template
+      description: Deletes the template locally and from Meta.
+      tags: [Templates]
+      responses:
+        "204": { description: No Content }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /business_accounts/{business_account_id}/templates/{id}/clone:
+    parameters:
+      - name: business_account_id
+        in: path
+        required: true
+        schema: { type: string }
+      - { $ref: "#/components/parameters/ResourceId" }
+
+    post:
+      summary: Clone a template
+      description: Creates a copy with `_copy` appended to the name.
+      tags: [Templates]
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Template" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /business_accounts/{business_account_id}/templates/{id}/send_test:
+    parameters:
+      - name: business_account_id
+        in: path
+        required: true
+        schema: { type: string }
+      - { $ref: "#/components/parameters/ResourceId" }
+
+    post:
+      summary: Send a test message
+      description: |
+        Sends a test using the template. If `approved`, sends the real template.
+        Otherwise, sends a plain text preview.
+      tags: [Templates]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to]
+              properties:
+                to: { type: string, example: "+33612345678" }
+      responses:
+        "201":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/BusinessMessage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── Sessions ───────────────────────────────────────────────────────────────
+
+  /sessions:
+    get:
+      summary: List sessions
+      tags: [Sessions]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Session" }
+                  meta:
+                    type: object
+                    properties:
+                      total: { type: integer }
+                      plan_limit: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+    post:
+      summary: Create a session
+      tags: [Sessions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [session]
+              properties:
+                session:
+                  type: object
+                  required: [name]
+                  properties:
+                    name: { type: string, example: "My Session" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Session" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/PlanLimitReached" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /sessions/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/ResourceId" }
+
+    get:
+      summary: Get a session
+      tags: [Sessions]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Session" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+    patch:
+      summary: Update session status
+      description: Used by the WhatsRB connector to update connection state, QR code, etc.
+      tags: [Sessions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [pending, qr_ready, connected, disconnected, failed]
+                phone_number: { type: string, nullable: true }
+                qr_code: { type: string, nullable: true, description: Base64-encoded QR code }
+                status_reason: { type: string, nullable: true }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Session" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+    delete:
+      summary: Delete a session
+      tags: [Sessions]
+      responses:
+        "204": { description: No Content }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── Session Messages ───────────────────────────────────────────────────────
+
+  /sessions/{session_id}/messages:
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema: { type: string }
+
+    post:
+      summary: Send a message
+      tags: [Session Messages]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: object
+                  required: [to, message_type, content]
+                  properties:
+                    to: { type: string, example: "+33612345678" }
+                    message_type: { type: string, enum: [text] }
+                    content: { type: string }
+      responses:
+        "201":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/SessionMessage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Session not connected
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/QuotaExceeded" }
+
+    get:
+      summary: List messages
+      tags: [Session Messages]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/SessionMessage" }
+                  meta:
+                    type: object
+                    properties:
+                      total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /sessions/{session_id}/messages/{id}:
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema: { type: string }
+      - { $ref: "#/components/parameters/ResourceId" }
+
+    get:
+      summary: Get a message
+      tags: [Session Messages]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/SessionMessage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+    patch:
+      summary: Update message status
+      description: Used by the WhatsRB connector to report delivery status updates.
+      tags: [Session Messages]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [sent, delivered, read, failed] }
+                whatsapp_message_id: { type: string, nullable: true }
+                error: { type: string, nullable: true }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/SessionMessage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  # ── Webhooks ───────────────────────────────────────────────────────────────
+
+  /webhooks:
+    get:
+      summary: List webhook endpoints
+      tags: [Webhooks]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/WebhookEndpoint" }
+                  meta:
+                    type: object
+                    properties:
+                      total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+    post:
+      summary: Create a webhook endpoint
+      description: |
+        The response includes a `secret` for verifying webhook signatures.
+        **Store it securely — it won't be shown again.**
+      tags: [Webhooks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [webhook]
+              properties:
+                webhook:
+                  type: object
+                  required: [url]
+                  properties:
+                    url: { type: string, format: uri }
+                    active: { type: boolean, default: true }
+                    events:
+                      type: array
+                      items:
+                        type: string
+                        enum:
+                          - message.sent
+                          - message.delivered
+                          - message.read
+                          - message.failed
+                          - message.status
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    allOf:
+                      - { $ref: "#/components/schemas/WebhookEndpoint" }
+                      - type: object
+                        properties:
+                          secret:
+                            type: string
+                            description: HMAC signing secret — only returned on creation
+                            example: "whsec_xxxxxxxxxxxx"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /webhooks/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+
+    get:
+      summary: Get a webhook endpoint
+      tags: [Webhooks]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/WebhookEndpoint" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+    patch:
+      summary: Update a webhook endpoint
+      tags: [Webhooks]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                webhook:
+                  type: object
+                  properties:
+                    url: { type: string, format: uri }
+                    active: { type: boolean }
+                    events:
+                      type: array
+                      items: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/WebhookEndpoint" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+    delete:
+      summary: Delete a webhook endpoint
+      tags: [Webhooks]
+      responses:
+        "204": { description: No Content }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── Usage ──────────────────────────────────────────────────────────────────
+
+  /usage:
+    get:
+      summary: Get usage summary
+      tags: [Usage]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      plan: { type: string, enum: [free, pro, scale] }
+                      sessions:
+                        type: object
+                        properties:
+                          used: { type: integer }
+                          limit: { type: integer }
+                      daily_business_messages:
+                        type: object
+                        properties:
+                          used: { type: integer }
+                          limit: { type: integer }
+                      daily_session_messages:
+                        type: object
+                        properties:
+                          used: { type: integer }
+                          limit: { type: integer }
+                      send_enabled: { type: boolean }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /usage/metrics:
+    get:
+      summary: Get usage metrics
+      tags: [Usage]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      sessions:
+                        type: object
+                        properties:
+                          total: { type: integer }
+                          connected: { type: integer }
+                          disconnect_rate_24h: { type: number }
+                      messages:
+                        type: object
+                        properties:
+                          total_24h: { type: integer }
+                          sent_24h: { type: integer }
+                          failed_24h: { type: integer }
+                          success_rate_24h: { type: number, nullable: true }
+                          avg_delivery_latency_ms: { type: number, nullable: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ── Connects ───────────────────────────────────────────────────────────────
+
+  /connects/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/ResourceId" }
+
+    get:
+      summary: Get a connect request
+      description: |
+        Check the status of an embedded signup connect request.
+        When `status=completed`, the response includes the newly connected business account.
+      tags: [Connects]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      status:
+                        type: string
+                        enum: [pending, completed, failed, expired]
+                      expires_at: { type: string, format: date-time }
+                      created_at: { type: string, format: date-time }
+                      account:
+                        allOf:
+                          - { $ref: "#/components/schemas/BusinessAccount" }
+                        description: Only present when `status=completed`
+                        nullable: true
+                      error:
+                        type: string
+                        description: Only present when `status=failed`
+                        nullable: true
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+# ── Components ─────────────────────────────────────────────────────────────────
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: "API key from the WhatsRB dashboard. Format: `Bearer wrb_live_xxx`"
+
+  parameters:
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+
+  schemas:
+
+    BusinessAccount:
+      type: object
+      properties:
+        id: { type: string }
+        waba_id: { type: string }
+        business_name: { type: string }
+        phone_number_id: { type: string }
+        phone_number: { type: string }
+        display_name: { type: string }
+        status: { type: string }
+        quality_rating: { type: string, nullable: true }
+        connected: { type: boolean }
+        meta_token_expires_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    BusinessMessage:
+      type: object
+      properties:
+        id: { type: string }
+        direction: { type: string, enum: [outbound] }
+        to: { type: string }
+        message_type: { type: string, enum: [text, template] }
+        content: { type: string, nullable: true }
+        status: { type: string, enum: [queued, sent, delivered, read, failed] }
+        wamid: { type: string, nullable: true }
+        error_message: { type: string, nullable: true }
+        sent_at: { type: string, format: date-time, nullable: true }
+        delivered_at: { type: string, format: date-time, nullable: true }
+        read_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    Template:
+      type: object
+      properties:
+        id: { type: string }
+        meta_template_id: { type: string, nullable: true }
+        name: { type: string }
+        category: { type: string, enum: [MARKETING, UTILITY, AUTHENTICATION] }
+        status: { type: string, enum: [approved, pending, rejected] }
+        language: { type: string }
+        header_type: { type: string, nullable: true }
+        components: { type: object }
+        variable_examples: { type: object }
+        rejection_reason: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    Session:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        status: { type: string, enum: [pending, qr_ready, connected, disconnected, failed] }
+        status_reason: { type: string, nullable: true }
+        phone_number: { type: string, nullable: true }
+        qr_code: { type: string, nullable: true }
+        connected: { type: boolean }
+        last_connected_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    SessionMessage:
+      type: object
+      properties:
+        id: { type: string }
+        direction: { type: string, enum: [outbound] }
+        to: { type: string }
+        message_type: { type: string }
+        content: { type: string }
+        status: { type: string, enum: [queued, sent, delivered, read, failed] }
+        whatsapp_message_id: { type: string, nullable: true }
+        sent_at: { type: string, format: date-time, nullable: true }
+        delivered_at: { type: string, format: date-time, nullable: true }
+        read_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    WebhookEndpoint:
+      type: object
+      properties:
+        id: { type: integer }
+        url: { type: string, format: uri }
+        events:
+          type: array
+          items: { type: string }
+        active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        details: {}
+        upgrade_url: { type: string, format: uri, nullable: true }
+
+  responses:
+
+    Unauthorized:
+      description: Invalid or missing API key
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error: "Invalid or missing API key"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error: "Not found"
+
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error: "Validation failed"
+            details:
+              to: ["can't be blank"]
+
+    PlanLimitReached:
+      description: Plan limit reached
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error: "Business account limit reached for your plan (free)"
+            details:
+              limit: 1
+
+    QuotaExceeded:
+      description: Daily quota or rate limit exceeded
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error: "free_plan_limit_reached"
+            upgrade_url: "https://whatsrb.com/pricing"

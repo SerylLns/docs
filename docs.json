@@ -59,9 +59,39 @@
         "groups": [
           {
             "group": "Overview",
-            "pages": [
-              "api-reference/overview"
-            ]
+            "pages": ["api-reference/overview"]
+          },
+          {
+            "group": "Business Accounts",
+            "openapi": "openapi.yaml"
+          },
+          {
+            "group": "Business Messages",
+            "openapi": "openapi.yaml"
+          },
+          {
+            "group": "Templates",
+            "openapi": "openapi.yaml"
+          },
+          {
+            "group": "Sessions",
+            "openapi": "openapi.yaml"
+          },
+          {
+            "group": "Session Messages",
+            "openapi": "openapi.yaml"
+          },
+          {
+            "group": "Webhooks",
+            "openapi": "openapi.yaml"
+          },
+          {
+            "group": "Usage",
+            "openapi": "openapi.yaml"
+          },
+          {
+            "group": "Connects",
+            "openapi": "openapi.yaml"
           }
         ]
       },
