@@ -45,6 +45,10 @@ account.business_name # => "Acme Corp"
 
 ## Connect manually (direct credentials)
 
+<Warning>
+  Manual accounts can only **send** messages. To also **receive** incoming messages, you must configure your Meta app's webhook. See [Meta Webhook Setup](/guides/meta-webhook-setup).
+</Warning>
+
 ```ruby
 account = client.business_accounts.connect_manual(
   waba_id:           "123456789",

@@ -49,6 +49,7 @@
             "pages": [
               "guides/authentication",
               "guides/webhooks",
+              "guides/meta-webhook-setup",
               "guides/error-handling"
             ]
           }

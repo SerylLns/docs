@@ -1,0 +1,28 @@
+---
+title: Meta Webhook Setup (Manual Accounts)
+description: How to configure your Meta app to forward incoming messages to WhatsRB.
+---
+
+Accounts connected via **OAuth (embedded signup)** receive incoming messages automatically — no extra configuration needed.
+
+For **manual accounts** (created with your own credentials), you need to point your Meta app's webhook to WhatsRB.
+
+## Steps
+
+In your [Meta App Dashboard](https://developers.facebook.com/apps) → **WhatsApp → Configuration**:
+
+<Steps>
+  <Step title="Set the Callback URL">
+    ```
+    https://whatsrb.com/webhooks/meta
+    ```
+  </Step>
+  <Step title="Set the Verify Token">
+    Enter your WhatsRB API key (`wrb_live_...`) as the verify token.
+  </Step>
+  <Step title="Subscribe to webhook fields">
+    Enable the **`messages`** field to receive incoming messages and delivery statuses.
+  </Step>
+</Steps>
+
+Once configured, Meta will forward all incoming messages and delivery receipts to WhatsRB, which dispatches them to your registered [webhook endpoints](/guides/webhooks).
