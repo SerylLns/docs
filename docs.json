@@ -21,7 +21,7 @@
     "links": [
       {
         "label": "GitHub",
-        "href": "https://github.com/SerylLns/whatsrb-cloud-ruby"
+        "href": "https://github.com/SerylLns/whatsrb-sdk"
       }
     ],
     "primary": {
@@ -96,7 +96,7 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/SerylLns/whatsrb-cloud-ruby"
+      "github": "https://github.com/SerylLns/whatsrb-sdk"
     }
   }
 }
