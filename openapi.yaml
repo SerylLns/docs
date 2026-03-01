@@ -28,6 +28,12 @@ tags:
     description: Send and retrieve messages via WhatsApp Web sessions.
   - name: Webhooks
     description: Configure endpoints to receive real-time event notifications.
+  - name: Agents
+    description: AI agents for automated message analysis and action extraction.
+  - name: Agent Runs
+    description: Agent execution results with structured output.
+  - name: Agent Templates
+    description: Pre-built agent configurations for one-click creation.
   - name: Usage
     description: Monitor your plan usage and message metrics.
   - name: Connects
@@ -740,6 +746,8 @@ paths:
                           - session.connected
                           - session.disconnected
                           - session.failed
+                          - agent_run.completed
+                          - agent_run.failed
                           - quota.warning
                           - quota.exceeded
       responses:
@@ -821,6 +829,233 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  # ── Agents ─────────────────────────────────────────────────────────────────
+
+  /agents:
+    get:
+      summary: List agents
+      tags: [Agents]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Agent" }
+
+    post:
+      summary: Create an agent
+      tags: [Agents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agent]
+              properties:
+                agent:
+                  type: object
+                  required: [name, system_prompt]
+                  properties:
+                    business_account_id:
+                      type: string
+                      nullable: true
+                      description: Business account external ID (ba_xxx). Optional — omit for standalone agents.
+                    name: { type: string }
+                    description: { type: string }
+                    system_prompt: { type: string }
+                    model: { type: string, default: gpt-4o-mini }
+                    temperature: { type: number, minimum: 0, maximum: 2, default: 0.3 }
+                    max_tokens: { type: integer, minimum: 1, maximum: 2048, default: 1024 }
+                    active: { type: boolean, default: true }
+                    auto_run_inbound: { type: boolean, default: false }
+                    debounce_seconds: { type: integer, minimum: 1, maximum: 60, default: 10 }
+                    inbound_config: { $ref: "#/components/schemas/InboundConfig" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Agent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /agents/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/AgentId" }
+
+    get:
+      summary: Get an agent
+      tags: [Agents]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Agent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+    patch:
+      summary: Update an agent
+      tags: [Agents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agent]
+              properties:
+                agent:
+                  type: object
+                  properties:
+                    name: { type: string }
+                    description: { type: string }
+                    system_prompt: { type: string }
+                    model: { type: string }
+                    temperature: { type: number }
+                    max_tokens: { type: integer }
+                    active: { type: boolean }
+                    auto_run_inbound: { type: boolean }
+                    debounce_seconds: { type: integer }
+                    inbound_config: { $ref: "#/components/schemas/InboundConfig" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Agent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+    delete:
+      summary: Delete an agent
+      tags: [Agents]
+      responses:
+        "204": { description: No Content }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── Agent Runs ────────────────────────────────────────────────────────────
+
+  /agents/{agent_id}/runs:
+    parameters:
+      - name: agent_id
+        in: path
+        required: true
+        schema: { type: string }
+        description: Agent external ID (agt_xxx)
+
+    get:
+      summary: List runs
+      description: Returns the last 50 runs for the agent.
+      tags: [Agent Runs]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/AgentRun" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+    post:
+      summary: Trigger a run
+      description: Creates a run and processes it asynchronously.
+      tags: [Agent Runs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [run]
+              properties:
+                run:
+                  type: object
+                  required: [input]
+                  properties:
+                    input:
+                      description: Input data for the agent (free-form JSON)
+                    metadata:
+                      type: object
+                      description: Optional metadata attached to the run
+      responses:
+        "201":
+          description: Created (processing async)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/AgentRun" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /agents/{agent_id}/runs/{id}:
+    parameters:
+      - name: agent_id
+        in: path
+        required: true
+        schema: { type: string }
+      - { $ref: "#/components/parameters/ResourceId" }
+
+    get:
+      summary: Get a run
+      tags: [Agent Runs]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/AgentRun" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── Agent Templates ───────────────────────────────────────────────────────
+
+  /agent_templates:
+    get:
+      summary: List agent templates
+      description: Returns pre-built agent configurations for one-click creation.
+      tags: [Agent Templates]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/AgentTemplate" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   # ── Usage ──────────────────────────────────────────────────────────────────
 
   /usage:
@@ -856,6 +1091,7 @@ paths:
                           used: { type: integer }
                           limit: { type: integer }
                           remaining: { type: integer }
+                      agents: { $ref: "#/components/schemas/AgentMetrics" }
                       send_enabled: { type: boolean }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -947,6 +1183,12 @@ components:
       in: path
       required: true
       schema: { type: string }
+    AgentId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+      description: Agent external ID (agt_xxx)
 
   schemas:
 
@@ -1038,6 +1280,114 @@ components:
         active: { type: boolean }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+
+    Agent:
+      type: object
+      properties:
+        id: { type: string, example: agt_abc123 }
+        business_account_id: { type: string, nullable: true, example: ba_abc123 }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        model: { type: string, example: gpt-4o-mini }
+        temperature: { type: number, example: 0.3 }
+        max_tokens: { type: integer, example: 1024 }
+        active: { type: boolean }
+        auto_run_inbound: { type: boolean }
+        debounce_seconds: { type: integer, example: 10 }
+        inbound_config: { $ref: "#/components/schemas/InboundConfig" }
+        tools:
+          type: array
+          items:
+            type: object
+            properties:
+              key: { type: string }
+              name: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    InboundConfig:
+      type: object
+      description: Per-agent inbound message filter configuration
+      properties:
+        trigger_on:
+          type: string
+          enum: [all, text_only]
+          default: all
+          description: "Message types to process. text_only skips media, reactions, status."
+        min_message_length:
+          type: integer
+          minimum: 0
+          default: 0
+          description: "Skip messages shorter than this. 0 = no minimum."
+        max_messages_per_hour:
+          type: integer
+          minimum: 0
+          default: 0
+          description: "Rate limit per conversation per hour. 0 = unlimited."
+        ignore_patterns:
+          type: array
+          items: { type: string }
+          default: []
+          description: "Regex patterns (case insensitive). Messages matching any pattern are skipped."
+
+    AgentRun:
+      type: object
+      properties:
+        id: { type: string, example: run_abc123 }
+        agent_id: { type: string }
+        status: { type: string, enum: [pending, running, completed, failed] }
+        triggered_by: { type: string, enum: [api, sdk, auto, auto_inbound] }
+        input:
+          description: Input data sent to the agent
+        output:
+          description: Structured result (present when completed)
+          nullable: true
+        model_used: { type: string, nullable: true }
+        input_tokens: { type: integer, nullable: true }
+        output_tokens: { type: integer, nullable: true }
+        latency_ms: { type: integer, nullable: true }
+        duration_ms: { type: integer, nullable: true }
+        error_message: { type: string, nullable: true, description: Present when status is failed }
+        completed_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    AgentTemplate:
+      type: object
+      properties:
+        key: { type: string, enum: [classifier, support, task_extractor, scheduler] }
+        name: { type: string }
+        description: { type: string }
+        system_prompt: { type: string }
+
+    AgentMetrics:
+      type: object
+      properties:
+        runs_today:
+          type: object
+          properties:
+            total: { type: integer }
+            completed: { type: integer }
+            failed: { type: integer }
+            with_actions: { type: integer, description: Completed runs that produced actionable output }
+            empty_actions: { type: integer, description: Completed runs with no actions }
+            conversion_rate: { type: number, description: "Percentage of completed runs with actions (0-100)" }
+        pre_filter:
+          type: object
+          properties:
+            inbound_total: { type: integer, description: Total inbound messages processed today }
+            processed: { type: integer, description: Messages that passed both filters }
+            skip_rules: { type: integer, description: Messages skipped by rule-based filter }
+            skip_gatekeeper: { type: integer, description: Messages skipped by LLM gatekeeper }
+            skip_rate: { type: number, description: "Percentage of messages filtered out (0-100)" }
+            gatekeeper_calls: { type: integer }
+            gatekeeper_tokens: { type: integer, description: Total tokens used by gatekeeper today }
+            gatekeeper_errors: { type: integer, description: Gatekeeper LLM errors (fail-open) }
+        averages:
+          type: object
+          properties:
+            avg_tokens: { type: number, description: Average total tokens per completed run }
+            avg_latency_ms: { type: number, description: Average LLM response time }
+            avg_duration_ms: { type: number, description: Average total processing time }
 
     Error:
       type: object

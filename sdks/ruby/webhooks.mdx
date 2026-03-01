@@ -51,28 +51,52 @@ client.webhooks.delete(1)  # => true
 
 ## Verify incoming signatures
 
-Every webhook request includes `X-Webhook-Signature` and `X-Webhook-Event` headers. Verify the signature before processing:
+Every webhook request includes `X-Webhook-Signature` and `X-Webhook-Event` headers. Verify the signature before processing.
+
+### Quick method (Rack/Rails)
 
 ```ruby
-# Rails controller example
-def receive
-  payload   = request.body.read
-  signature = request.headers["X-Webhook-Signature"]
-  secret    = ENV["WHATSRB_WEBHOOK_SECRET"]
+# Handles body reading, rewinding, and header extraction automatically
+WhatsrbCloud::WebhookSignature.verify_request(request, secret: ENV["WHATSRB_WEBHOOK_SECRET"])
+```
 
-  unless WhatsrbCloud::WebhookSignature.verify?(payload: payload, signature: signature, secret: secret)
-    return head :unauthorized
+### Manual method
+
+```ruby
+WhatsrbCloud::WebhookSignature.verify?(
+  payload: request.body.read,
+  signature: request.headers["X-Webhook-Signature"],
+  secret: ENV["WHATSRB_WEBHOOK_SECRET"]
+)
+```
+
+### Full Rails example
+
+```ruby
+class WebhooksController < ApplicationController
+  skip_forgery_protection
+
+  def create
+    unless WhatsrbCloud::WebhookSignature.verify_request(request, secret: webhook_secret)
+      return head :unauthorized
+    end
+
+    Rails.application.config.event_registry.dispatch(payload)
+    head :ok
   end
 
-  event = JSON.parse(payload)
-  # { "event" => "message.status", "data" => {...}, "timestamp" => "..." }
+  private
 
-  handle_event(event)
-  head :ok
+  def payload = @payload ||= JSON.parse(request.body.read)
+  def webhook_secret = ENV["WHATSRB_WEBHOOK_SECRET"]
 end
 ```
 
 The signature format is `sha256=<HMAC-SHA256(secret, raw_body)>`.
+
+<Info>
+  For routing events to handlers, see [Registries](/sdks/ruby/registries).
+</Info>
 
 ## Webhook attributes
 
@@ -96,3 +120,5 @@ The signature format is `sha256=<HMAC-SHA256(secret, raw_body)>`.
 | `session.failed` | Session connection failed |
 | `quota.warning` | Approaching daily quota |
 | `quota.exceeded` | Daily quota exceeded |
+| `agent_run.completed` | Agent run finished successfully |
+| `agent_run.failed` | Agent run failed |

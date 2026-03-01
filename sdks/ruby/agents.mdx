@@ -1,0 +1,164 @@
+---
+title: Agents
+description: Create AI agents and run them against conversations.
+---
+
+## List agents
+
+```ruby
+result = client.agents.list
+
+result.each { |agent| puts agent.name }  # List is Enumerable
+result.meta  # => { "total" => 3 }
+```
+
+## Create an agent
+
+```ruby
+agent = client.agents.create(
+  name: "Hotel Concierge",
+  system_prompt: "You are a hotel operations agent...",
+  business_account_id: "acc_01hx..."
+)
+
+agent.id     # => "agt_01hx..."
+agent.name   # => "Hotel Concierge"
+agent.status # => "active"
+```
+
+## Retrieve an agent
+
+```ruby
+agent = client.agents.retrieve("agt_01hx...")
+agent.active?   # => true
+agent.auto_run? # => false
+```
+
+## Update an agent
+
+```ruby
+agent = client.agents.update("agt_01hx...", name: "Updated Concierge")
+```
+
+## Delete an agent
+
+```ruby
+client.agents.delete("agt_01hx...")  # => true
+```
+
+## Run an agent (sync)
+
+Creates a run and **polls until completed**. Blocks the current thread.
+
+```ruby
+run = agent.run(input: { last_message: "Clean room 204 tomorrow at 8" })
+
+run.status     # => "completed"
+run.intent     # => "task_extraction"
+run.confidence # => 0.95
+run.actions    # => [{ "type" => "create_task", "room" => "204", ... }]
+```
+
+You can tune the polling behavior:
+
+```ruby
+run = agent.run(
+  input: { last_message: "..." },
+  timeout: 60,   # seconds before raising (default: 30)
+  interval: 2    # seconds between polls (default: 1)
+)
+```
+
+## Run an agent (async)
+
+Creates a run and **returns immediately** without waiting.
+
+```ruby
+run = agent.run_async(input: { last_message: "Clean room 204" })
+run.status  # => "pending"
+
+# Later: poll manually
+run.reload
+run.completed?  # => false
+
+# Or block until done
+run.wait(timeout: 30, interval: 1)
+run.completed?  # => true
+```
+
+## List runs
+
+```ruby
+# From an agent object
+runs = agent.runs.list
+
+# From the client
+runs = client.agents.runs("agt_01hx...").list
+# or
+runs = client.agent_runs("agt_01hx...").list
+```
+
+## Retrieve a run
+
+```ruby
+run = client.agent_runs("agt_01hx...").retrieve("run_01hx...")
+```
+
+## Dispatch actions with a registry
+
+Use an `ActionRegistry` to route agent actions to your service objects:
+
+```ruby
+registry = WhatsrbCloud::ActionRegistry.new
+
+registry.register("create_task") do |action|
+  Task.create!(
+    description: action["description"],
+    room_number: action["room_number"],
+    priority: action["priority"]
+  )
+end
+
+registry.register("create_ticket") do |action|
+  Ticket.create!(message: action["message"])
+end
+
+# Dispatch all actions from a completed run
+run = agent.run(input: { last_message: "Fix the AC in room 107" })
+run.dispatch(registry)
+```
+
+See [Registries](/sdks/ruby/registries) for the full guide.
+
+## Agent attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `id` | String | Agent ID |
+| `name` | String | Agent name |
+| `system_prompt` | String | System prompt for the agent |
+| `model` | String | Model used |
+| `status` | String | `active`, `inactive` |
+| `business_account_id` | String | Linked business account |
+| `auto_run` | Boolean | Whether auto-run is enabled |
+| `active?` | Boolean | Whether agent is active |
+| `auto_run?` | Boolean | Whether auto-run is enabled |
+
+## AgentRun attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `id` | String | Run ID |
+| `agent_id` | String | Parent agent ID |
+| `status` | String | `pending`, `running`, `completed`, `failed` |
+| `input` | Hash | Input data sent to the agent |
+| `output` | Hash | Agent output (intent, confidence, actions) |
+| `error` | String | Error message if failed |
+| `intent` | String | Shortcut for `output["intent"]` |
+| `confidence` | Float | Shortcut for `output["confidence"]` |
+| `actions` | Array | Shortcut for `output["actions"]` |
+| `pending?` | Boolean | Status is pending |
+| `running?` | Boolean | Status is running |
+| `completed?` | Boolean | Status is completed |
+| `failed?` | Boolean | Status is failed |
+| `finished?` | Boolean | Completed or failed |

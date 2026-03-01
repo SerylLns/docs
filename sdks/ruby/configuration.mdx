@@ -13,6 +13,22 @@ WhatsrbCloud.configure do |c|
 end
 ```
 
+## Default client
+
+After configuring globally, access a shared client singleton:
+
+```ruby
+WhatsrbCloud.configure do |c|
+  c.api_key = ENV["WHATSRB_API_KEY"]
+end
+
+# Uses the global configuration — no need to instantiate
+WhatsrbCloud.client.agents.list
+WhatsrbCloud.client.webhooks.list
+```
+
+The singleton is lazy-loaded and reset when you call `WhatsrbCloud.reset_configuration!`.
+
 ## Per-client configuration
 
 ```ruby

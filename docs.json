@@ -87,7 +87,9 @@
               "sdks/ruby/business-messages",
               "sdks/ruby/templates",
               "sdks/ruby/sessions",
-              "sdks/ruby/webhooks"
+              "sdks/ruby/agents",
+              "sdks/ruby/webhooks",
+              "sdks/ruby/registries"
             ]
           }
         ]

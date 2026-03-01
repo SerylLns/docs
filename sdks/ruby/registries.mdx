@@ -1,0 +1,140 @@
+---
+title: Registries
+description: Route webhook events and agent actions to your handlers.
+---
+
+The SDK provides two registry classes to replace `case/when` chains with a clean, extensible dispatch pattern.
+
+## ActionRegistry
+
+Routes agent run actions to handler blocks based on action type.
+
+### Setup
+
+```ruby
+registry = WhatsrbCloud::ActionRegistry.new
+
+registry
+  .register("support.ticket.create") { |action| Supports::Tickets::Create.call(action) }
+  .register("housekeeping.task.create") { |action| Tasks::Create.call(action) }
+  .register("maintenance.request") { |action| Maintenance::Request.call(action) }
+```
+
+### Dispatch from a run
+
+```ruby
+run = agent.run(input: { last_message: "Clean room 204 tomorrow" })
+run.dispatch(registry)
+```
+
+`run.dispatch(registry)` iterates over `run.actions` and calls the matching handler for each action.
+
+### Dispatch manually
+
+```ruby
+# Single action
+registry.dispatch("type" => "support.ticket.create", "message" => "Help!")
+
+# Multiple actions
+registry.dispatch_all(run.actions)
+```
+
+### Introspection
+
+```ruby
+registry.registered?("support.ticket.create")  # => true
+registry.action_types  # => ["support.ticket.create", "housekeeping.task.create", ...]
+```
+
+## EventRegistry
+
+Routes webhook events to handler blocks based on event type.
+
+### Setup
+
+```ruby
+events = WhatsrbCloud::EventRegistry.new
+
+events
+  .on("agent_run.completed") do |data|
+    run = WhatsrbCloud::Objects::AgentRun.new(data)
+    run.dispatch(action_registry)
+  end
+  .on("message.received") { |data| IncomingMessage.process(data) }
+  .on("message.failed") { |data| FailedMessage.alert(data) }
+```
+
+### Dispatch a webhook payload
+
+```ruby
+events.dispatch(payload)
+# payload = { "event" => "agent_run.completed", "data" => { ... } }
+```
+
+Returns `true` if a handler was found, `false` otherwise.
+
+### Multiple handlers
+
+An event can have multiple handlers — they all run in order:
+
+```ruby
+events.on("message.received") { |data| store_message(data) }
+events.on("message.received") { |data| notify_agent(data) }
+```
+
+### Introspection
+
+```ruby
+events.registered?("agent_run.completed")  # => true
+events.event_types  # => ["agent_run.completed", "message.received", ...]
+```
+
+## Rails integration
+
+A typical setup in a Rails initializer:
+
+```ruby
+# config/initializers/whatsrb.rb
+WhatsrbCloud.configure do |config|
+  config.api_key = Rails.application.credentials.dig(:whatsrb, :api_key)
+end
+
+Rails.application.config.action_registry = WhatsrbCloud::ActionRegistry.new.tap do |r|
+  r.register("create_task") { |a| Task.create!(description: a["description"], room_number: a["room_number"]) }
+  r.register("create_ticket") { |a| Ticket.create!(message: a["message"]) }
+end
+
+Rails.application.config.event_registry = WhatsrbCloud::EventRegistry.new.tap do |r|
+  r.on("agent_run.completed") do |data|
+    run = WhatsrbCloud::Objects::AgentRun.new(data)
+    run.dispatch(Rails.application.config.action_registry)
+  end
+end
+```
+
+Then in your webhook controller:
+
+```ruby
+class WebhooksController < ApplicationController
+  skip_forgery_protection
+
+  def create
+    unless WhatsrbCloud::WebhookSignature.verify_request(request, secret: webhook_secret)
+      return head :unauthorized
+    end
+
+    Rails.application.config.event_registry.dispatch(payload)
+    head :ok
+  end
+
+  private
+
+  def payload
+    @payload ||= JSON.parse(request.body.read)
+  end
+
+  def webhook_secret
+    Rails.application.credentials.dig(:whatsrb, :webhook_secret) || ENV["WHATSRB_WEBHOOK_SECRET"]
+  end
+end
+```
