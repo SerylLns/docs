@@ -26,6 +26,27 @@ agent.name   # => "Hotel Concierge"
 agent.status # => "active"
 ```
 
+### With structured fields
+
+Define `payload_schema` to enforce specific fields in the AI output payload:
+
+```ruby
+agent = client.agents.create(
+  name: "Hotel Concierge",
+  system_prompt: "Extract structured tasks from hotel guest messages.",
+  payload_schema: [
+    { name: "room_number", field_type: "text", required: true },
+    { name: "description", field_type: "text", required: true },
+    { name: "due_at", field_type: "datetime", required: false },
+    { name: "priority", field_type: "text", required: false }
+  ]
+)
+
+agent.payload_schema  # => [{ "name" => "room_number", ... }, ...]
+```
+
+Available field types: `text`, `number`, `boolean`, `date`, `time`, `datetime`. Max 10 fields.
+
 ## Retrieve an agent
 
 ```ruby
@@ -141,6 +162,7 @@ See [Registries](/sdks/ruby/registries) for the full guide.
 | `status` | String | `active`, `inactive` |
 | `business_account_id` | String | Linked business account |
 | `auto_run` | Boolean | Whether auto-run is enabled |
+| `payload_schema` | Array | Structured fields definition for action payloads |
 | `active?` | Boolean | Whether agent is active |
 | `auto_run?` | Boolean | Whether auto-run is enabled |
 

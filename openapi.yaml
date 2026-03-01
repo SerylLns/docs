@@ -1295,6 +1295,11 @@ components:
         auto_run_inbound: { type: boolean }
         debounce_seconds: { type: integer, example: 10 }
         inbound_config: { $ref: "#/components/schemas/InboundConfig" }
+        payload_schema:
+          type: array
+          description: Structured fields the AI must fill in the action payload. Leave empty for free-form output.
+          items: { $ref: "#/components/schemas/PayloadField" }
+          default: []
         tools:
           type: array
           items:
@@ -1304,6 +1309,23 @@ components:
               name: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+
+    PayloadField:
+      type: object
+      required: [name, field_type]
+      properties:
+        name:
+          type: string
+          description: "Field name in snake_case (e.g. room_number)"
+          pattern: "^[a-z][a-z0-9_]*$"
+        field_type:
+          type: string
+          enum: [text, number, boolean, date, time, datetime]
+          description: "Data type of the field"
+        required:
+          type: boolean
+          default: false
+          description: "Whether the AI must always fill this field"
 
     InboundConfig:
       type: object
