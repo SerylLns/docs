@@ -42,10 +42,41 @@ agent = client.agents.create(
   ]
 )
 
-agent.payload_schema  # => [{ "name" => "room_number", ... }, ...]
+agent.payload_schema              # => PayloadSchema
+agent.payload_schema.fields       # => [Field, Field, ...]
+agent.payload_schema.field_names  # => [:room_number, :description, :due_at, :priority]
+agent.payload_schema.required     # => [:room_number, :description]
 ```
 
 Available field types: `text`, `number`, `boolean`, `date`, `time`, `datetime`. Max 10 fields.
+
+### Validating run payloads
+
+Use `payload_schema.check(payload)` to validate action output against the schema:
+
+```ruby
+run = agent.run(input: { last_message: "Clean room 204 tomorrow" })
+
+run.actions.each do |action|
+  result = agent.payload_schema.check(action["payload"])
+
+  result.valid?    # => false (description missing)
+  result.missing   # => [:description]
+  result.present   # => [:room_number, :due_at]
+  result.to_h      # => { room_number: "204", description: nil, due_at: "2026-03-03T00:00:00", priority: nil }
+
+  if result.valid?
+    Task.create!(result.to_h)
+  else
+    notify_human("Missing fields: #{result.missing.join(', ')}")
+  end
+end
+```
+
+<Note>
+  `required` instructs the AI to always fill the field — it does not guarantee a value.
+  Always validate on your end with `check`.
+</Note>
 
 ## Retrieve an agent
 
@@ -162,7 +193,7 @@ See [Registries](/sdks/ruby/registries) for the full guide.
 | `status` | String | `active`, `inactive` |
 | `business_account_id` | String | Linked business account |
 | `auto_run` | Boolean | Whether auto-run is enabled |
-| `payload_schema` | Array | Structured fields definition for action payloads |
+| `payload_schema` | PayloadSchema | Structured fields with `check(payload)`, `required`, `field_names` |
 | `active?` | Boolean | Whether agent is active |
 | `auto_run?` | Boolean | Whether auto-run is enabled |
 
