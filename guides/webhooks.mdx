@@ -30,7 +30,127 @@ WhatsRB Cloud sends HTTP POST requests to your configured endpoint when events o
 }
 ```
 
-The `data` object content varies by event type.
+The `data` object content varies by event type — see below for each event.
+
+## `message.received` payload
+
+Fired when an inbound message is received on any channel.
+
+### Common fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | String | WhatsRB message ID (`wrb_msg_...`) |
+| `wamid` | String | WhatsApp message ID |
+| `from` | String | Sender phone number |
+| `type` | String | Message type (see below) |
+| `content` | String | Human-readable content |
+| `metadata` | Object | Structured data for rich message types (see below) |
+| `channel` | String | `"business"` |
+| `timestamp` | String | ISO 8601 timestamp |
+
+### Supported message types
+
+| Type | `content` | `metadata` |
+|------|-----------|------------|
+| `text` | Message body | `{}` |
+| `image` | Media ID | `{}` |
+| `video` | Media ID | `{}` |
+| `audio` | Media ID | `{}` |
+| `document` | Media ID | `{}` |
+| `sticker` | Media ID | `{}` |
+| `location` | `"lat,lng"` | `{}` |
+| `contact` | Contact name | `{}` |
+| `reaction` | Emoji (`"👍"`) | `{ "message_id": "wamid...", "emoji": "👍" }` |
+| `interactive` | Button/list title | See [interactive metadata](#interactive-metadata) |
+| `order` | `"2x SKU123, 1x SKU456"` | `{ "product_items": [...] }` |
+| `system` | `"system:group_created"` | Full system event object |
+
+### Interactive metadata
+
+When a user taps a button or selects a list item from a template, the message type is `interactive`. The `metadata` object contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `interactive_type` | String | `"button_reply"`, `"list_reply"`, or `"nfm_reply"` |
+| `button_reply` / `list_reply` | Object | Contains `id` and `title` of the selected option |
+| `context_message_id` | String | wamid of the original template message (if present) |
+
+**Example — button reply:**
+
+```json
+{
+  "event": "message.received",
+  "data": {
+    "id": "wrb_msg_a1b2c3d4e5f6",
+    "wamid": "wamid.HBg...",
+    "from": "33612345678",
+    "type": "interactive",
+    "content": "Yes, confirm",
+    "metadata": {
+      "interactive_type": "button_reply",
+      "id": "btn_confirm",
+      "title": "Yes, confirm",
+      "context_message_id": "wamid.HBg..."
+    },
+    "channel": "business",
+    "timestamp": "2026-03-02T10:30:00Z"
+  },
+  "timestamp": "2026-03-02T10:30:00Z"
+}
+```
+
+**Example — list reply:**
+
+```json
+{
+  "event": "message.received",
+  "data": {
+    "id": "wrb_msg_f6e5d4c3b2a1",
+    "wamid": "wamid.HBg...",
+    "from": "33612345678",
+    "type": "interactive",
+    "content": "Premium Plan",
+    "metadata": {
+      "interactive_type": "list_reply",
+      "id": "plan_premium",
+      "title": "Premium Plan",
+      "description": "Unlimited messages, priority support",
+      "context_message_id": "wamid.HBg..."
+    },
+    "channel": "business",
+    "timestamp": "2026-03-02T10:30:00Z"
+  },
+  "timestamp": "2026-03-02T10:30:00Z"
+}
+```
+
+### Handling interactive replies
+
+Route by `metadata.interactive_type` and use the option `id` (not `title`) for reliable matching:
+
+```ruby
+case data["metadata"]["interactive_type"]
+when "button_reply"
+  handle_button(data["metadata"]["id"])
+when "list_reply"
+  handle_list(data["metadata"]["id"])
+when "nfm_reply"
+  handle_flow(data["metadata"])
+end
+```
+
+<Tip>
+  The `content` field always contains a human-readable string, even for rich message types. Use it for display, use `metadata` for logic.
+</Tip>
+
+### Message edits
+
+When a user edits a message, WhatsRB updates the original message's `content` in place. No `message.received` event is fired — the edit is silent.
+
+### Unsupported messages
+
+Messages with type `unsupported` (e.g. polls) are silently ignored and do not trigger a webhook.
 
 ## Signature verification
 

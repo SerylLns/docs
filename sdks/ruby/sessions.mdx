@@ -3,7 +3,9 @@ title: Sessions
 description: Manage WhatsApp Web sessions (session-based channel).
 ---
 
-Sessions use WhatsApp Web under the hood — no Meta approval required, but the phone must stay connected.
+<Warning>
+  **Session-based channel** — Sessions use WhatsApp Web under the hood. This is a separate channel from the official WhatsApp Business Platform (Meta API). The phone must stay connected, and this channel is subject to WhatsApp Web limitations. For production workloads, we recommend using [Business Accounts](/sdks/ruby/business-accounts) with the official Meta API.
+</Warning>
 
 ## List sessions
 
