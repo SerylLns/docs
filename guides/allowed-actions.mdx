@@ -1,0 +1,167 @@
+---
+title: Allowed Action Types
+description: Constrain AI agent outputs to predictable, parseable action types.
+---
+
+## The problem
+
+When an agent processes a message, it returns **actions** — structured instructions your backend can execute. Each action has a `type` field:
+
+```json
+{
+  "actions": [
+    { "type": "support.refund.process", "payload": { "amount": 49.90 } }
+  ]
+}
+```
+
+By default, the AI **invents** the action type freely. It might return `support.refund.process` on one run, `refund_customer` on the next, and `process_refund_request` on another. This makes your backend parsing fragile and unpredictable.
+
+## The solution
+
+**Allowed actions** let you declare exactly which action types your agent can return. The AI is constrained at the model level — it **cannot** return a type outside your list.
+
+```ruby
+agent = client.agents.create(
+  name: "Support Agent",
+  system_prompt: "Handle customer support requests.",
+  allowed_actions: [
+    "support.refund.process",
+    "support.ticket.create",
+    "support.escalation.request"
+  ]
+)
+```
+
+Now every run is guaranteed to return only these types. Your backend can safely `case/when` on them.
+
+## Format
+
+Action types follow the `domain.resource.action` convention:
+
+| Segment | Purpose | Examples |
+|---------|---------|----------|
+| **domain** | Business area | `support`, `operations`, `billing`, `hr` |
+| **resource** | What is acted on | `ticket`, `refund`, `task`, `invoice` |
+| **action** | What to do | `create`, `process`, `escalate`, `cancel` |
+
+Rules:
+- Exactly 3 segments separated by dots
+- Each segment: lowercase letters, digits, underscores
+- Must start with a letter
+- Max 10 action types per agent
+
+**Valid:** `support.refund.process`, `ops.task_v2.create`, `billing.invoice.send`
+
+**Invalid:** `refund` (1 segment), `Support.Refund.Process` (uppercase), `support.refund.` (trailing dot)
+
+## How it works
+
+Under the hood, allowed actions are injected as an `enum` constraint in the LLM's [function calling](https://platform.openai.com/docs/guides/function-calling) schema:
+
+```json
+{
+  "type": "string",
+  "description": "Action type.",
+  "enum": [
+    "support.refund.process",
+    "support.ticket.create",
+    "support.escalation.request"
+  ]
+}
+```
+
+The model is **natively constrained** — it's not just a prompt instruction, it's a schema-level guarantee. The LLM physically cannot output a value outside this list.
+
+## When to use it
+
+| Scenario | Recommendation |
+|----------|----------------|
+| **Prototyping** | Leave empty (free-form) — see what action types the AI naturally produces |
+| **Production** | Define your list — predictable parsing, reliable routing |
+| **Multi-agent** | Each agent gets its own list — `support.*` for support, `ops.*` for operations |
+
+## Example: end-to-end
+
+**1. Create the agent with constraints:**
+
+```ruby
+agent = client.agents.create(
+  name: "Support Agent",
+  system_prompt: "You are a customer support agent for an e-commerce store.",
+  allowed_actions: [
+    "support.refund.process",
+    "support.ticket.create",
+    "support.noop.skip"
+  ],
+  payload_schema: [
+    { name: "order_id", field_type: "text", required: true },
+    { name: "reason", field_type: "text", required: true },
+    { name: "amount", field_type: "number", required: false }
+  ]
+)
+```
+
+**2. Run the agent:**
+
+```ruby
+run = agent.run(input: {
+  last_message: "I want a refund for order #1234, the product was defective"
+})
+```
+
+**3. Handle the output — the type is guaranteed:**
+
+```ruby
+run.actions.each do |action|
+  case action["type"]
+  when "support.refund.process"
+    Refunds::Process.call(
+      order_id: action.dig("payload", "order_id"),
+      reason: action.dig("payload", "reason"),
+      amount: action.dig("payload", "amount")
+    )
+  when "support.ticket.create"
+    Tickets::Create.call(action["payload"])
+  when "support.noop.skip"
+    # Message not relevant — do nothing
+  end
+end
+```
+
+**4. Or use a registry for cleaner routing:**
+
+```ruby
+registry = WhatsrbCloud::ActionRegistry.new
+registry.register("support.refund.process") { |a| Refunds::Process.call(a) }
+registry.register("support.ticket.create") { |a| Tickets::Create.call(a) }
+registry.register("support.noop.skip")     { |_| nil }
+
+run.dispatch(registry)
+```
+
+## API
+
+Set `allowed_actions` when creating or updating an agent:
+
+```bash
+curl -X POST https://whatsrb.com/api/v1/agents \
+  -H "Authorization: Bearer wrb_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent": {
+      "name": "Support Agent",
+      "system_prompt": "Handle support requests.",
+      "allowed_actions": [
+        "support.refund.process",
+        "support.ticket.create"
+      ]
+    }
+  }'
+```
+
+The response includes `allowed_actions` in the agent object. The webhook payload (`agent_run.completed`) is unchanged — `output.actions[].type` now contains guaranteed values.
+
+<Tip>
+  Start with free-form, observe which action types the AI produces, then lock them down with `allowed_actions` once you're confident in your list.
+</Tip>

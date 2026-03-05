@@ -876,6 +876,13 @@ paths:
                     auto_run_inbound: { type: boolean, default: false }
                     debounce_seconds: { type: integer, minimum: 1, maximum: 60, default: 10 }
                     inbound_config: { $ref: "#/components/schemas/InboundConfig" }
+                    allowed_actions:
+                      type: array
+                      items: { type: string, pattern: "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$" }
+                      maxItems: 10
+                      default: []
+                      description: "Constrain which action types the AI can return. Format: domain.resource.action (e.g. support.refund.process). Leave empty for free-form."
+                      example: ["support.refund.process", "support.ticket.create", "operations.task.create"]
       responses:
         "201":
           description: Created
@@ -931,6 +938,12 @@ paths:
                     auto_run_inbound: { type: boolean }
                     debounce_seconds: { type: integer }
                     inbound_config: { $ref: "#/components/schemas/InboundConfig" }
+                    allowed_actions:
+                      type: array
+                      items: { type: string, pattern: "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$" }
+                      maxItems: 10
+                      default: []
+                      description: "Constrain which action types the AI can return. Format: domain.resource.action."
       responses:
         "200":
           description: OK
@@ -1295,6 +1308,13 @@ components:
         auto_run_inbound: { type: boolean }
         debounce_seconds: { type: integer, example: 10 }
         inbound_config: { $ref: "#/components/schemas/InboundConfig" }
+        allowed_actions:
+          type: array
+          description: "Allowed action types the AI can return. When set, the AI is constrained to only use these values. Format: domain.resource.action."
+          items: { type: string, pattern: "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$" }
+          maxItems: 10
+          default: []
+          example: ["support.refund.process", "support.ticket.create"]
         payload_schema:
           type: array
           description: Structured fields the AI must fill in the action payload. Leave empty for free-form output.

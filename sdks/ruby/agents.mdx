@@ -50,6 +50,47 @@ agent.payload_schema.required     # => [:room_number, :description]
 
 Available field types: `text`, `number`, `boolean`, `date`, `time`, `datetime`. Max 10 fields.
 
+### With allowed action types
+
+By default, the AI can return any action type (free-form). Set `allowed_actions` to constrain it to a specific list — the AI **can only return values from this list**.
+
+```ruby
+agent = client.agents.create(
+  name: "Support Agent",
+  system_prompt: "Handle customer support requests.",
+  allowed_actions: [
+    "support.refund.process",
+    "support.ticket.create",
+    "support.escalation.request"
+  ]
+)
+
+agent.allowed_actions  # => ["support.refund.process", "support.ticket.create", ...]
+```
+
+Format: `domain.resource.action` (snake_case, 3 segments). Max 10 action types.
+
+When a run completes, every action's `type` is guaranteed to be in this list:
+
+```ruby
+run = agent.run(input: { last_message: "I want a refund for order #1234" })
+
+run.actions.each do |action|
+  case action["type"]
+  when "support.refund.process"
+    Refunds::Process.call(action["payload"])
+  when "support.ticket.create"
+    Tickets::Create.call(action["payload"])
+  when "support.escalation.request"
+    Escalations::Notify.call(action["payload"])
+  end
+end
+```
+
+<Tip>
+  Without `allowed_actions`, the AI invents action types freely — useful for prototyping but unpredictable in production. Add constraints once you know your action types.
+</Tip>
+
 ### Validating run payloads
 
 Use `payload_schema.check(payload)` to validate action output against the schema:
@@ -193,6 +234,7 @@ See [Registries](/sdks/ruby/registries) for the full guide.
 | `status` | String | `active`, `inactive` |
 | `business_account_id` | String | Linked business account |
 | `auto_run` | Boolean | Whether auto-run is enabled |
+| `allowed_actions` | Array | Allowed action types (empty = free-form) |
 | `payload_schema` | PayloadSchema | Structured fields with `check(payload)`, `required`, `field_names` |
 | `active?` | Boolean | Whether agent is active |
 | `auto_run?` | Boolean | Whether auto-run is enabled |
