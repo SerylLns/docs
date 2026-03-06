@@ -80,6 +80,12 @@ account.send_template(
   template_name: "order_confirmation",
   template_language: "en_US"
 )
+
+# Media messages (within 24h conversation window)
+account.send_image(to: "+33699887766", url: "https://example.com/photo.jpg")
+account.send_video(to: "+33699887766", url: "https://example.com/clip.mp4")
+account.send_audio(to: "+33699887766", url: "https://example.com/voice.ogg")
+account.send_document(to: "+33699887766", url: "https://example.com/invoice.pdf")
 ```
 
 ## BusinessAccount attributes
@@ -95,3 +101,6 @@ account.send_template(
 | `status` | String | `active`, `disconnected`, etc. |
 | `quality_rating` | String | `GREEN`, `YELLOW`, `RED` |
 | `connected?` | Boolean | Whether account is connected |
+| `meta_token_expires_at` | String | Meta access token expiration (ISO 8601) |
+| `window_open?(phone)` | Boolean | Whether the 24h conversation window is open for this number |
+| `window(phone)` | Hash | Full window info: `open`, `last_inbound_at`, `expires_at` |

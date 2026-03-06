@@ -156,6 +156,44 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /business_accounts/{id}/window:
+    parameters:
+      - { $ref: "#/components/parameters/ResourceId" }
+
+    get:
+      summary: Check 24h conversation window
+      description: |
+        Check whether the 24-hour conversation window is open for a given phone number.
+        The window opens when the contact sends an inbound message and expires 24 hours later.
+        While the window is open, you can send free-form messages (text, image, video, audio, document).
+        Outside the window, only template messages are allowed.
+      tags: [Business Accounts]
+      parameters:
+        - name: phone_number
+          in: query
+          required: true
+          schema: { type: string }
+          description: Phone number in E.164 format
+          example: "+33612345678"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      phone_number: { type: string, example: "+33612345678" }
+                      open: { type: boolean, description: Whether the 24h window is currently open }
+                      last_inbound_at: { type: string, format: date-time, nullable: true, description: Timestamp of the last inbound message }
+                      expires_at: { type: string, format: date-time, nullable: true, description: When the window will close }
+        "400": { description: Bad Request — phone_number is required }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   # ── Business Messages ──────────────────────────────────────────────────────
 
   /business_accounts/{business_account_id}/messages:
@@ -190,7 +228,13 @@ paths:
                       enum: [text, template, image, video, audio, document]
                     content:
                       type: string
-                      description: Message text (required for `message_type=text`)
+                      description: |
+                        Message content. Required for all types except `template`.
+                        - `text`: the message text
+                        - `image`: public URL of the image (JPEG, PNG)
+                        - `video`: public URL of the video (MP4)
+                        - `audio`: public URL of the audio file (OGG, MP3)
+                        - `document`: public URL of the document (PDF, DOCX, etc.)
                     template_name:
                       type: string
                       description: Template name (required for `message_type=template`)

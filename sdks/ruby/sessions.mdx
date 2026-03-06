@@ -106,4 +106,7 @@ msg    = messages.retrieve("msg_01hz...")
 | `status` | String | `connecting`, `qr_pending`, `connected`, `disconnected` |
 | `phone_number` | String | Connected phone number |
 | `qr_code` | String | Base64 QR image (while `qr_pending`) |
+| `status_reason` | String | Reason for current status (e.g. `phone_offline`) |
+| `connected` | Boolean | Whether session is connected (boolean from API) |
+| `last_connected_at` | String | Last successful connection timestamp (ISO 8601) |
 | `connected?` | Boolean | Whether session is active |

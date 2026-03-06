@@ -5,6 +5,35 @@ description: Send messages via the WhatsApp Business API.
 
 Access messages through a `BusinessAccount` object or directly via the client.
 
+## Check the 24h conversation window
+
+Before sending a free-form message (text, image, video, etc.), check whether the conversation window is open. The window opens when the contact sends you an inbound message and expires 24 hours later.
+
+```ruby
+account = client.business_accounts.list.data.first
+
+# Simple check
+if account.window_open?("+33699887766")
+  account.send_text(to: "+33699887766", text: "Thanks for reaching out!")
+else
+  # Window closed — send a template instead
+  account.send_template(to: "+33699887766", template_name: "follow_up", template_language: "en_US")
+end
+```
+
+Get detailed window info (last inbound timestamp, expiration):
+
+```ruby
+info = account.window("+33699887766")
+info["open"]            # => true
+info["last_inbound_at"] # => "2026-03-06T10:00:00Z"
+info["expires_at"]      # => "2026-03-07T10:00:00Z"
+```
+
+<Tip>
+  Outside the 24h window, Meta only allows **template messages**. Free-form messages (text, media) will be rejected. Always check the window before sending non-template messages.
+</Tip>
+
 ## Send a text message
 
 ```ruby
@@ -24,6 +53,32 @@ msg = account.send_template(
   template_language: "en_US"
 )
 ```
+
+## Send media messages
+
+Within the 24-hour conversation window, you can send images, videos, audio, and documents by URL:
+
+```ruby
+# Image
+account.send_image(to: "+33699887766", url: "https://example.com/photo.jpg")
+
+# Video
+account.send_video(to: "+33699887766", url: "https://example.com/clip.mp4")
+
+# Audio
+account.send_audio(to: "+33699887766", url: "https://example.com/voice.ogg")
+
+# Document
+account.send_document(to: "+33699887766", url: "https://example.com/invoice.pdf")
+```
+
+<Note>
+  Media URLs must be publicly accessible. Meta downloads the file once and delivers it natively in the recipient's WhatsApp chat. Supported formats: JPEG/PNG (image), MP4 (video), OGG/MP3 (audio), PDF/DOCX (document).
+</Note>
+
+<Warning>
+  **Meta file size limits:** Image: 5 MB — Video: 16 MB — Audio: 16 MB — Document: 100 MB. Files exceeding these limits will be rejected by Meta.
+</Warning>
 
 ## Using the messages resource directly
 
@@ -62,7 +117,7 @@ msg.delivered_at # => 2026-01-01 12:00:05 UTC
 | `id` | String | WhatsRB message ID |
 | `direction` | String | `outbound` |
 | `to` | String | Recipient phone number |
-| `message_type` | String | `text` or `template` |
+| `message_type` | String | `text`, `template`, `image`, `video`, `audio`, `document` |
 | `content` | String | Message text |
 | `template_name` | String | Template name (if template) |
 | `template_language` | String | Template language (if template) |

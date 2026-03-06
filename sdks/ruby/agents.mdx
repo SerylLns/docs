@@ -246,9 +246,15 @@ See [Registries](/sdks/ruby/registries) for the full guide.
 | `id` | String | Run ID |
 | `agent_id` | String | Parent agent ID |
 | `status` | String | `pending`, `running`, `completed`, `failed` |
+| `triggered_by` | String | Trigger source: `sdk`, `api`, `auto`, `auto_inbound` |
 | `input` | Hash | Input data sent to the agent |
 | `output` | Hash | Agent output (intent, confidence, actions) |
 | `error` | String | Error message if failed |
+| `model_used` | String | LLM model used for this run |
+| `input_tokens` | Integer | Tokens consumed by the input |
+| `output_tokens` | Integer | Tokens generated in the output |
+| `latency_ms` | Integer | LLM response latency in milliseconds |
+| `duration_ms` | Integer | Total run duration in milliseconds |
 | `intent` | String | Shortcut for `output["intent"]` |
 | `confidence` | Float | Shortcut for `output["confidence"]` |
 | `actions` | Array | Shortcut for `output["actions"]` |
