@@ -12,10 +12,12 @@ description: Understand API error responses and how to handle them.
 | `204` | No content (e.g. after DELETE) |
 | `400` | Bad request — malformed JSON or missing required parameter |
 | `401` | Unauthorized — invalid or missing API key |
+| `403` | Forbidden — account deactivated |
 | `404` | Resource not found |
 | `409` | Conflict — e.g. account not connected |
 | `422` | Validation error — check `details` for field errors |
 | `429` | Rate limit or daily quota exceeded |
+| `500` | Internal server error — unexpected failure (always JSON, never HTML) |
 | `502` | Meta API error |
 
 ## Error Response Format
