@@ -80,6 +80,54 @@ account.send_document(to: "+33699887766", url: "https://example.com/invoice.pdf"
   **Meta file size limits:** Image: 5 MB — Video: 16 MB — Audio: 16 MB — Document: 100 MB. Files exceeding these limits will be rejected by Meta.
 </Warning>
 
+## Send interactive buttons
+
+Send a message with up to 3 reply buttons. The recipient taps a button and you receive the response via webhook.
+
+```ruby
+# With hash buttons (full control over IDs)
+account.send_buttons(
+  to: "+33699887766",
+  body: "Would you like to proceed?",
+  buttons: [
+    { id: "confirm", title: "Yes, confirm" },
+    { id: "cancel", title: "No, cancel" }
+  ]
+)
+
+# With string shortcuts (IDs auto-generated as btn_0, btn_1, ...)
+account.send_buttons(
+  to: "+33699887766",
+  body: "Rate your experience:",
+  buttons: ["Great", "OK", "Poor"]
+)
+```
+
+When the recipient taps a button, you receive a webhook `message.received` with:
+- `message_type`: `"interactive"`
+- `message_metadata.interactive_type`: `"button_reply"`
+- `message_metadata.id`: the button ID (e.g. `"confirm"`)
+- `message_metadata.title`: the button label (e.g. `"Yes, confirm"`)
+
+```ruby
+# In your webhook handler
+registry = WhatsrbCloud::EventRegistry.new
+
+registry.on("message.received") do |data|
+  if data["message_type"] == "interactive"
+    meta = data["message_metadata"]
+    case meta["id"]
+    when "confirm" then process_confirmation(data)
+    when "cancel"  then handle_cancellation(data)
+    end
+  end
+end
+```
+
+<Warning>
+  **Limits:** Max 3 buttons per message. Button titles max 20 characters. Interactive messages require an open 24h conversation window (no template fallback).
+</Warning>
+
 ## Using the messages resource directly
 
 ```ruby
@@ -117,7 +165,7 @@ msg.delivered_at # => 2026-01-01 12:00:05 UTC
 | `id` | String | WhatsRB message ID |
 | `direction` | String | `outbound` |
 | `to` | String | Recipient phone number |
-| `message_type` | String | `text`, `template`, `image`, `video`, `audio`, `document` |
+| `message_type` | String | `text`, `template`, `image`, `video`, `audio`, `document`, `interactive` |
 | `content` | String | Message text |
 | `template_name` | String | Template name (if template) |
 | `template_language` | String | Template language (if template) |

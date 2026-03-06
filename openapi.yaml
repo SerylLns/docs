@@ -225,7 +225,7 @@ paths:
                       example: "+33612345678"
                     message_type:
                       type: string
-                      enum: [text, template, image, video, audio, document]
+                      enum: [text, template, image, video, audio, document, interactive]
                     content:
                       type: string
                       description: |
@@ -242,6 +242,21 @@ paths:
                       type: string
                       description: Template language code
                       example: en_US
+                    message_metadata:
+                      type: object
+                      description: |
+                        Additional metadata for interactive messages.
+                        For `interactive` type, include `buttons` array (max 3).
+                      properties:
+                        buttons:
+                          type: array
+                          maxItems: 3
+                          items:
+                            type: object
+                            required: [id, title]
+                            properties:
+                              id: { type: string, description: Unique button identifier (returned in webhook reply) }
+                              title: { type: string, description: Button label (max 20 chars), maxLength: 20 }
       responses:
         "201":
           description: Sent
@@ -1271,7 +1286,7 @@ components:
         id: { type: string }
         direction: { type: string, enum: [outbound] }
         to: { type: string }
-        message_type: { type: string, enum: [text, template, image, video, audio, document] }
+        message_type: { type: string, enum: [text, template, image, video, audio, document, interactive] }
         content: { type: string, nullable: true }
         status: { type: string, enum: [queued, sent, delivered, read, failed] }
         wamid: { type: string, nullable: true }
