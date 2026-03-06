@@ -1,0 +1,155 @@
+---
+title: Human Takeover
+description: Pause AI agents on a conversation when a human needs to take over.
+---
+
+## Overview
+
+When a human (concierge, support agent, account manager) needs to handle a WhatsApp conversation directly, you can **pause** the AI agent for that specific phone number. The agent stops processing inbound messages until the pause expires or is manually resumed.
+
+This is a **per-conversation** pause — other conversations continue to be handled by the agent normally.
+
+## How it works
+
+```
+Inbound message → Debounce → Pause check → Agent routing
+                                 ↓
+                          Paused? → Skip (no agent run)
+```
+
+1. A pause is created (manually via API, on outbound message, or by agent proposal)
+2. Any inbound message from that phone number is **skipped** — no agent run is triggered
+3. The pause auto-expires after a configurable duration (default: 30 minutes)
+4. Every manual outbound message **resets the timer** — the agent stays paused as long as the human is actively responding
+5. The pause can be resumed early via API
+
+## Creating a pause
+
+### Via API
+
+```ruby
+pause = client.conversation_pauses(account_id).create(
+  phone_number: "+33612345678",
+  duration_minutes: 60  # optional, defaults to account setting
+)
+```
+
+```bash
+curl -X POST https://whatsrb.com/api/v1/business_accounts/:id/conversation_pauses \
+  -H "Authorization: Bearer wrb_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{ "phone_number": "+33612345678", "duration_minutes": 60 }'
+```
+
+### Via outbound message
+
+When you send a message through the API (dashboard, SDK, or direct API call), WhatsRB automatically creates or extends a pause for that phone number. This means the agent **stays silent** while a human is actively responding.
+
+Only messages with `triggered_by: "api"` trigger this behavior. Auto-replies from agents (`triggered_by: "auto_reply"`) do **not** pause the conversation.
+
+### Via agent proposal
+
+An agent can propose a human takeover by including a `conversation.pause` action in its output:
+
+```json
+{
+  "actions": [
+    {
+      "type": "conversation.pause",
+      "payload": { "reason": "Customer is upset, needs human support" }
+    }
+  ]
+}
+```
+
+WhatsRB intercepts this action, creates the pause, and **removes it from the webhook payload** — your backend never sees it. It's an internal action.
+
+<Tip>
+  `conversation.pause` doesn't need to be in the agent's `allowed_actions` list. It's always available as an internal action type.
+</Tip>
+
+## Checking pause status
+
+```ruby
+status = client.conversation_pauses(account_id).check(
+  phone_number: "+33612345678"
+)
+
+status["paused"]           # => true
+status["pause"]["id"]      # => 42
+status["pause"]["reason"]  # => "manual"
+status["pause"]["remaining_minutes"] # => 22
+```
+
+## Resuming a pause
+
+```ruby
+client.conversation_pauses(account_id).resume(pause_id)
+```
+
+```bash
+curl -X DELETE https://whatsrb.com/api/v1/business_accounts/:id/conversation_pauses/:pause_id \
+  -H "Authorization: Bearer wrb_live_xxx"
+```
+
+## Configuring the default duration
+
+Each business account has a `human_takeover_duration` setting (in minutes, default: 30):
+
+```ruby
+client.business_accounts.update(account_id, {
+  business_account: { human_takeover_duration: 60 }
+})
+```
+
+## Listing active pauses
+
+```ruby
+# Active pauses only (default)
+pauses = client.conversation_pauses(account_id).list
+
+# Include expired/resumed pauses
+pauses = client.conversation_pauses(account_id).list(include_expired: true)
+```
+
+## Webhook events
+
+Two new events are fired:
+
+| Event | Trigger |
+|-------|---------|
+| `conversation.paused` | A pause is created (any reason) |
+| `conversation.resumed` | A pause is manually resumed |
+
+Pauses that expire naturally do **not** fire `conversation.resumed` — the agent simply starts processing inbound messages again on the next one.
+
+### `conversation.paused` payload
+
+```json
+{
+  "event": "conversation.paused",
+  "data": {
+    "id": 42,
+    "phone_number": "33612345678",
+    "reason": "manual",
+    "expires_at": "2026-03-06T17:30:00Z",
+    "remaining_minutes": 30
+  },
+  "timestamp": "2026-03-06T17:00:00Z"
+}
+```
+
+## Behavior summary
+
+| Scenario | Behavior |
+|----------|----------|
+| Pause already active for same phone | Timer is extended (no duplicate pause) |
+| Phone format `+33` vs `33` | Both formats are matched automatically |
+| Pause expires during debounce | Agent resumes on next inbound message |
+| Manual outbound during active pause | Timer is reset to full duration |
+| Agent auto-reply during active pause | Timer is **not** reset |
+| Resume then human sends again | A new pause is created on outbound |
+
+<Warning>
+  Human takeover is per-conversation (phone number), not per-agent. When a pause is active, **all** agents are paused for that number.
+</Warning>

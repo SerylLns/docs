@@ -50,6 +50,7 @@
               "guides/webhooks",
               "guides/templates",
               "guides/allowed-actions",
+              "guides/human-takeover",
               "guides/meta-webhook-setup",
               "guides/error-handling"
             ]
