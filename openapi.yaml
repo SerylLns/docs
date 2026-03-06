@@ -374,7 +374,10 @@ paths:
 
     post:
       summary: Create a template
-      description: Creates the template locally and submits it to Meta for approval.
+      description: |
+        Creates the template locally and submits it to Meta for approval.
+        This call includes a round-trip to Meta's API, so it may take a few seconds.
+        The template is returned with status `pending` once Meta accepts it.
       tags: [Templates]
       requestBody:
         required: true
@@ -386,23 +389,55 @@ paths:
               properties:
                 template:
                   type: object
-                  required: [name, category, language]
+                  required: [name, category, language, components]
                   properties:
-                    name: { type: string }
+                    name:
+                      type: string
+                      description: "Snake_case name (e.g. `order_shipped`). Must be unique per language."
+                      example: hotel_checkout_reminder
                     category:
                       type: string
                       enum: [MARKETING, UTILITY, AUTHENTICATION]
-                    language: { type: string, example: en_US }
+                      description: Case-insensitive (`UTILITY` and `utility` both work).
+                    language:
+                      type: string
+                      example: fr
+                      description: BCP-47 language code.
                     header_type:
                       type: string
-                      enum: [TEXT, IMAGE, VIDEO, DOCUMENT]
+                      enum: [text, image, video, document]
                       nullable: true
                     components:
                       type: object
-                      description: Template components (header, body, footer, buttons)
+                      description: |
+                        Template components. Accepts two formats:
+
+                        **Hash format (recommended):**
+                        ```json
+                        { "body": { "text": "Hello {{1}}, your order {{2}} is ready." } }
+                        ```
+
+                        **Meta array format:**
+                        ```json
+                        [{ "type": "BODY", "text": "Hello {{1}}, your order {{2}} is ready." }]
+                        ```
+
+                        Both are normalized internally to hash format.
+                      example:
+                        body:
+                          text: "Hello {{1}}, your order {{2}} is ready."
                     variable_examples:
                       type: object
-                      description: Example values for template variables
+                      description: |
+                        Example values for template variables (required when body contains `{{1}}`, `{{2}}`, etc.). Accepts two formats:
+
+                        **SDK format:** `{ "body": ["John", "ORD-123"] }` — array of values per component.
+
+                        **Numbered format:** `{ "1": "John", "2": "ORD-123" }` — explicit variable mapping.
+
+                        Both are normalized internally to numbered format.
+                      example:
+                        body: ["John", "ORD-123"]
       responses:
         "201":
           description: Created
@@ -424,7 +459,9 @@ paths:
 
     post:
       summary: Sync templates from Meta
-      description: Fetches the latest templates from the Meta API and updates the local database.
+      description: |
+        Fetches the latest templates from the Meta API and updates the local database.
+        This call makes a round-trip to Meta's API, so it may take a few seconds depending on the number of templates.
       tags: [Templates]
       responses:
         "200":
@@ -1310,15 +1347,25 @@ components:
     Template:
       type: object
       properties:
-        id: { type: string }
-        meta_template_id: { type: string, nullable: true }
-        name: { type: string }
-        category: { type: string, enum: [MARKETING, UTILITY, AUTHENTICATION] }
-        status: { type: string, enum: [approved, pending, rejected] }
-        language: { type: string }
-        header_type: { type: string, nullable: true }
-        components: { type: object }
-        variable_examples: { type: object }
+        id: { type: string, example: tpl_c0eaed0650f895d0196257d7 }
+        meta_template_id: { type: string, nullable: true, example: "925378236746625" }
+        name: { type: string, example: hotel_checkout_reminder }
+        category: { type: string, enum: [marketing, utility, authentication] }
+        status: { type: string, enum: [draft, approved, pending, rejected, paused] }
+        language: { type: string, example: fr }
+        header_type: { type: string, nullable: true, enum: [text, image, video, document] }
+        components:
+          type: object
+          description: "Template components in hash format: `{ body: { text: \"...\" }, header: { ... } }`"
+          example:
+            body:
+              text: "Hello {{1}}, your checkout is at {{2}}."
+        variable_examples:
+          type: object
+          description: "Variable examples in numbered format: `{ \"1\": \"John\", \"2\": \"11:00\" }`"
+          example:
+            "1": John
+            "2": "11:00"
         rejection_reason: { type: string, nullable: true }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }

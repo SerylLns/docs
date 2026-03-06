@@ -1,0 +1,148 @@
+---
+title: Message Templates
+description: Create, manage, and send WhatsApp message templates via the API.
+---
+
+## Overview
+
+WhatsApp requires pre-approved **message templates** for outbound conversations outside the 24-hour window. WhatsRB Cloud manages templates locally and syncs them with Meta's API.
+
+<Warning>
+  `create`, `delete`, and `sync` make round-trip calls to Meta's API and may take several seconds.
+</Warning>
+
+## Template lifecycle
+
+```
+draft → pending → approved / rejected
+                   ↓
+                 paused (by Meta)
+```
+
+- **draft** — local only, not submitted to Meta yet
+- **pending** — submitted to Meta, awaiting review
+- **approved** — ready to send
+- **rejected** — declined by Meta (see `rejection_reason`)
+- **paused** — temporarily disabled by Meta
+
+## Create a template
+
+```ruby
+template = client.templates(account).create(
+  name: "hotel_checkout_reminder",
+  category: "UTILITY",
+  language: "fr",
+  components: {
+    body: { text: "Bonjour {{1}}, votre checkout est prévu à {{2}}. Besoin d'aide ?" }
+  },
+  variable_examples: { body: ["Seryl", "11h00"] }
+)
+
+template.id     # => "tpl_..."
+template.status # => "pending"
+```
+
+### Components format
+
+Two formats are accepted and normalized internally:
+
+**Hash format (recommended):**
+
+```json
+{
+  "body": { "text": "Hello {{1}}, your order {{2}} is ready." },
+  "header": { "text": "Order Update" },
+  "footer": { "text": "Reply STOP to unsubscribe" }
+}
+```
+
+**Meta array format:**
+
+```json
+[
+  { "type": "HEADER", "format": "text", "text": "Order Update" },
+  { "type": "BODY", "text": "Hello {{1}}, your order {{2}} is ready." },
+  { "type": "FOOTER", "text": "Reply STOP to unsubscribe" }
+]
+```
+
+### Variable examples
+
+When your body contains variables (`{{1}}`, `{{2}}`), you must provide example values. Two formats are accepted:
+
+**SDK format (recommended):**
+
+```json
+{ "body": ["John", "ORD-123"] }
+```
+
+**Numbered format:**
+
+```json
+{ "1": "John", "2": "ORD-123" }
+```
+
+### Category
+
+Case-insensitive: `"UTILITY"`, `"utility"`, and `"Utility"` all work.
+
+## List templates
+
+```ruby
+templates = client.templates(account).list
+templates = client.templates(account).list(status: "approved")
+templates = client.templates(account).list(category: "utility")
+```
+
+## Sync from Meta
+
+Fetches the latest templates from Meta and updates the local database. Useful after templates are approved or rejected.
+
+```ruby
+templates = client.templates(account).sync
+```
+
+<Tip>
+  Template status changes (approved, rejected) are also delivered via webhooks if you have the `template.status` event enabled.
+</Tip>
+
+## Send a test message
+
+```ruby
+client.templates(account).send_test(template.id, to: "+33612345678")
+```
+
+- **Approved templates** are sent as real template messages via the Cloud API.
+- **Non-approved templates** (draft, pending, rejected) are sent as plain text previews with variables replaced.
+
+## Clone a template
+
+Creates a local copy with `_copy` appended to the name. The clone is not submitted to Meta.
+
+```ruby
+copy = client.templates(account).clone(template.id)
+copy.name # => "hotel_checkout_reminder_copy"
+```
+
+## Delete a template
+
+Deletes the template locally and from Meta.
+
+```ruby
+client.templates(account).delete(template.id)
+```
+
+## Rate limits
+
+Meta enforces submission limits:
+- **1 submission per day** per template
+- **10 submissions per month** per template
+
+These limits apply to resubmissions (edits to already-submitted templates), not to new templates.
+
+## Template naming
+
+Template names must be:
+- Snake_case (`order_shipped`, not `Order Shipped`)
+- Unique per business account + language combination
+- Max 512 characters
