@@ -229,12 +229,11 @@ paths:
                     content:
                       type: string
                       description: |
-                        Message content. Required for all types except `template`.
-                        - `text`: the message text
-                        - `image`: public URL of the image (JPEG, PNG)
-                        - `video`: public URL of the video (MP4)
-                        - `audio`: public URL of the audio file (OGG, MP3)
-                        - `document`: public URL of the document (PDF, DOCX, etc.)
+                        Message content.
+                        - `text`: the message text (required)
+                        - `image`, `video`, `audio`, `document`: caption text (optional, URL goes in `message_metadata.url`)
+                        - `interactive`: body text (required)
+                        - `template`: not used
                     template_name:
                       type: string
                       description: Template name (required for `message_type=template`)
@@ -245,9 +244,21 @@ paths:
                     message_metadata:
                       type: object
                       description: |
-                        Additional metadata for interactive messages.
-                        For `interactive` type, include `buttons` array (max 3).
+                        Additional metadata depending on message type.
+                        - For `image`, `video`, `audio`, `document`: include `url` (public media URL).
+                        - For `interactive`: include `type: "button"` and `buttons` array (max 3).
                       properties:
+                        url:
+                          type: string
+                          description: Public URL of the media file (for image/video/audio/document types)
+                          example: "https://example.com/photo.jpg"
+                        type:
+                          type: string
+                          description: Interactive type (currently only "button")
+                          enum: [button]
+                        filename:
+                          type: string
+                          description: Optional filename for document type
                         buttons:
                           type: array
                           maxItems: 3

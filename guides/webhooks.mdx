@@ -154,6 +154,65 @@ When a user edits a message, WhatsRB updates the original message's `content` in
 
 Messages with type `unsupported` (e.g. polls) are silently ignored and do not trigger a webhook.
 
+## `agent_run.completed` payload
+
+Fired when an AI agent completes processing an inbound message.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `run_id` | String | Unique agent run ID (`run_...`) |
+| `agent_id` | String | Agent ID (`agt_...`) |
+| `status` | String | `"completed"` |
+| `triggered_by` | String | `"auto_inbound"`, `"playground"`, or `"manual"` |
+| `from` | String | Sender phone number (without `+`), `null` for playground runs |
+| `metadata` | Object | Run metadata (conversation_key, pre_filter info) |
+| `output` | Object | Agent output (intent, actions, suggested_reply, language) |
+| `tokens` | Object | Token usage (`{ input, output }`) |
+| `latency_ms` | Integer | LLM call latency |
+| `duration_ms` | Integer | Total run duration |
+
+```json
+{
+  "event": "agent_run.completed",
+  "data": {
+    "run_id": "run_abc123",
+    "agent_id": "agt_def456",
+    "status": "completed",
+    "triggered_by": "auto_inbound",
+    "from": "33612345678",
+    "metadata": {
+      "conversation_key": "2:33612345678"
+    },
+    "output": {
+      "intent": "service request",
+      "confidence": 0.9,
+      "actions": [
+        {
+          "type": "operations.task.create",
+          "payload": {
+            "room_number": "204",
+            "description": "Towel request",
+            "category": "housekeeping",
+            "priority": "medium"
+          }
+        }
+      ],
+      "language": "fr",
+      "suggested_reply": "We'll bring towels to room 204.",
+      "analysis_summary": "Guest requests towels for room 204."
+    },
+    "tokens": { "input": 564, "output": 191 },
+    "latency_ms": 3600,
+    "duration_ms": 3634
+  },
+  "timestamp": "2026-03-06T17:29:28Z"
+}
+```
+
+<Tip>
+  Use the `from` field to match the sender to a user in your system. Use `run_id` for idempotent processing — webhook deliveries are at-least-once.
+</Tip>
+
 ## Signature verification
 
 Every request includes two headers:
