@@ -1,17 +1,27 @@
 ---
 title: Introduction
-description: The easiest way to integrate the official WhatsApp Business API in Ruby.
+description: Turn WhatsApp messages into structured actions with AI agents.
 ---
 
 ## What is WhatsRB Cloud?
 
-WhatsRB Cloud is a hosted platform that lets you send WhatsApp messages, manage templates, and handle webhooks through a simple REST API and Ruby SDK.
+WhatsRB Cloud turns inbound WhatsApp messages into **structured, actionable data** your backend can execute — without building any AI yourself.
 
-We handle Meta tokens, scaling, and reliability — you just send messages.
+```
+Customer: "I need towels for room B12"
+    → AI Agent classifies, extracts, routes
+    → Webhook: { type: "hospitality.room_service.request", payload: { room: "B12", items: "towels" } }
+    → Your backend handles it
+```
+
+You define agents with a system prompt and constraints. WhatsRB handles the rest: message reception, batching, spam filtering, AI routing, structured extraction, conversation memory, and signed webhook delivery.
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/guides/quickstart">
-    Send your first WhatsApp message in 5 minutes.
+    Create your first agent and receive a structured webhook in 5 minutes.
+  </Card>
+  <Card title="Agents Overview" icon="brain" href="/guides/agents-overview">
+    Understand the full inbound pipeline — from message to webhook.
   </Card>
   <Card title="API Reference" icon="square-terminal" href="/api-reference/overview">
     Explore all REST endpoints with examples.
@@ -19,16 +29,42 @@ We handle Meta tokens, scaling, and reliability — you just send messages.
   <Card title="Ruby SDK" icon="gem" href="/sdks/ruby/overview">
     Install the gem and start building.
   </Card>
-  <Card title="Webhooks" icon="webhook" href="/guides/webhooks">
-    Receive real-time delivery updates and incoming messages.
-  </Card>
 </CardGroup>
 
-## Key Features
+## How it works
 
-- **Official WhatsApp API** — No unofficial workarounds. Full Business API compliance.
-- **Ruby SDK** — Idiomatic Ruby client with built-in error handling.
-- **REST API** — Use any language with standard HTTP calls.
-- **Template Management** — Create, sync, and send pre-approved templates.
-- **Developer Logs** — Full request/response logs and delivery tracking.
-- **Webhooks** — Real-time events for messages, statuses, and errors.
+<Steps>
+  <Step title="Connect WhatsApp">
+    Link your WhatsApp Business Account via OAuth or manual token. WhatsRB handles Meta's API, tokens, and rate limits.
+  </Step>
+  <Step title="Create an agent">
+    Define a system prompt, constrain the output with allowed actions and typed fields. The agent knows your domain — you control what it can return.
+  </Step>
+  <Step title="Receive structured webhooks">
+    Every inbound message is processed by your agent and delivered as a signed webhook with predictable, typed actions your backend can safely parse.
+  </Step>
+</Steps>
+
+## Core capabilities
+
+| Capability | What it does |
+|------------|--------------|
+| **AI Agents** | LLM-powered processors that classify intent, extract fields, and propose actions |
+| **Allowed Actions** | Schema-level enum constraint — the AI can only return action types you define |
+| **Structured Fields** | Typed payload schema (text, number, date, boolean) — predictable extraction |
+| **Conversation Context** | Agents remember previous exchanges per phone number (configurable TTL) |
+| **Human Takeover** | Pause the AI per-conversation when a human needs to respond |
+| **Inbound Pipeline** | Debounce → spam filter → routing → agent execution — 2 LLM calls, ~$0.0004/message |
+| **Webhooks** | HMAC-signed delivery with retry for every event (runs, messages, statuses) |
+| **Templates** | Create, version, and send WhatsApp-approved message templates |
+
+## Who is it for?
+
+WhatsRB is a **horizontal platform** — business-logic agnostic. You bring the domain, we bring the AI pipeline.
+
+- **Hospitality** — guest requests, room service, booking changes
+- **Customer support** — ticket creation, refund processing, escalation
+- **Logistics & operations** — dispatch, tracking, task management
+- **Any domain** — define your own agents, actions, and fields
+
+Your backend stays in control. WhatsRB classifies and extracts — your systems execute.

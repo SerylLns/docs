@@ -1,29 +1,31 @@
 ---
 title: Quickstart
-description: Send your first WhatsApp message in 5 minutes.
+description: Create an AI agent and receive your first structured webhook in 5 minutes.
 ---
 
 ## Prerequisites
 
-- A WhatsRB Cloud account with an API key
+- A WhatsRB Cloud account with an API key ([Dashboard](https://whatsrb.com/dashboard))
 - A connected WhatsApp Business Account
+- A webhook endpoint (use [webhook.site](https://webhook.site) for testing)
 
 ## 1. Get your API key
 
-Log in to the [WhatsRB Dashboard](https://whatsrb.com/dashboard) and navigate to **API Keys**. Create a new key and copy it.
+Log in to the [WhatsRB Dashboard](https://whatsrb.com/dashboard) and navigate to **API Keys**. Create a new key — it starts with `wrb_live_`.
 
-## 2. Send a message
+## 2. Register a webhook endpoint
 
 <Tabs>
   <Tab title="cURL">
     ```bash
-    curl -X POST https://whatsrb.com/api/v1/business_accounts/:id/messages \
+    curl -X POST https://whatsrb.com/api/v1/webhooks \
       -H "Authorization: Bearer YOUR_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
-        "to": "+33612345678",
-        "type": "text",
-        "text": "Hello from WhatsRB!"
+        "webhook": {
+          "url": "https://your-webhook-url.com/whatsrb",
+          "events": ["agent_run.completed", "agent_run.failed"]
+        }
       }'
     ```
   </Tab>
@@ -31,32 +33,141 @@ Log in to the [WhatsRB Dashboard](https://whatsrb.com/dashboard) and navigate to
     ```ruby
     require "whatsrb_cloud"
 
-    WhatsrbCloud.configure do |c|
-      c.api_key = "wrb_live_xxx"
-    end
+    WhatsrbCloud.configure { |c| c.api_key = "wrb_live_xxx" }
+    client = WhatsrbCloud::Client.new
 
-    client  = WhatsrbCloud::Client.new
-    account = client.business_accounts.list.data.first
-
-    account.send_text(
-      to: "+33612345678",
-      text: "Hello from WhatsRB!"
+    client.webhooks.create(
+      url: "https://your-webhook-url.com/whatsrb",
+      events: ["agent_run.completed", "agent_run.failed"]
     )
     ```
   </Tab>
 </Tabs>
 
-## 3. Check delivery status
+## 3. Create an agent
 
-Message statuses are delivered via [webhooks](/guides/webhooks). You'll receive events for `sent`, `delivered`, `read`, and `failed`.
+<Tabs>
+  <Tab title="cURL">
+    ```bash
+    curl -X POST https://whatsrb.com/api/v1/agents \
+      -H "Authorization: Bearer YOUR_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "agent": {
+          "name": "Support Agent",
+          "business_account_id": "YOUR_BA_ID",
+          "system_prompt": "You are a customer support agent for an e-commerce store. Classify requests and extract relevant fields.",
+          "auto_run_inbound": true,
+          "allowed_actions": [
+            "support.refund.process",
+            "support.ticket.create",
+            "support.noop.skip"
+          ],
+          "payload_schema": [
+            { "name": "order_id", "field_type": "text", "required": true },
+            { "name": "reason", "field_type": "text", "required": true },
+            { "name": "amount", "field_type": "number", "required": false }
+          ]
+        }
+      }'
+    ```
+  </Tab>
+  <Tab title="Ruby">
+    ```ruby
+    agent = client.agents.create(
+      name: "Support Agent",
+      business_account_id: "YOUR_BA_ID",
+      system_prompt: "You are a customer support agent for an e-commerce store. Classify requests and extract relevant fields.",
+      auto_run_inbound: true,
+      allowed_actions: [
+        "support.refund.process",
+        "support.ticket.create",
+        "support.noop.skip"
+      ],
+      payload_schema: [
+        { name: "order_id", field_type: "text", required: true },
+        { name: "reason", field_type: "text", required: true },
+        { name: "amount", field_type: "number", required: false }
+      ]
+    )
+    ```
+  </Tab>
+</Tabs>
+
+## 4. Send a test message
+
+Send a WhatsApp message to your connected business number:
+
+> *"My order #ORD-1234 arrived broken, I want a refund of $49.90"*
+
+## 5. Receive the webhook
+
+Within seconds, your webhook endpoint receives:
+
+```json
+{
+  "event": "agent_run.completed",
+  "data": {
+    "run_id": "run_abc123",
+    "agent_id": "agt_def456",
+    "status": "completed",
+    "from": "33612345678",
+    "output": {
+      "intent": "refund_request",
+      "confidence": 0.95,
+      "actions": [
+        {
+          "type": "support.refund.process",
+          "payload": {
+            "order_id": "ORD-1234",
+            "reason": "Product arrived broken",
+            "amount": 49.90
+          }
+        }
+      ],
+      "language": "en",
+      "suggested_reply": "I'm sorry about that! I'll process your refund of $49.90 for order #ORD-1234 right away.",
+      "analysis_summary": "Customer requests refund for broken product"
+    },
+    "tokens": { "input": 850, "output": 120 },
+    "duration_ms": 450
+  }
+}
+```
+
+The `type` is guaranteed to be one of your `allowed_actions`. The `payload` fields match your `payload_schema`. Your backend can safely parse and execute.
+
+## 6. Handle it in your backend
+
+```ruby
+# Your webhook handler
+case action["type"]
+when "support.refund.process"
+  Refunds::Process.call(
+    order_id: action.dig("payload", "order_id"),
+    amount: action.dig("payload", "amount"),
+    reason: action.dig("payload", "reason")
+  )
+when "support.ticket.create"
+  Tickets::Create.call(action["payload"])
+when "support.noop.skip"
+  # Not relevant — do nothing
+end
+```
 
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Authentication" icon="key" href="/guides/authentication">
-    Learn about API key management and scopes.
+  <Card title="Agents Overview" icon="brain" href="/guides/agents-overview">
+    Understand the full inbound pipeline and agent output structure.
   </Card>
-  <Card title="Templates" icon="file-text" href="/guides/templates">
-    Create and send WhatsApp message templates.
+  <Card title="Allowed Actions" icon="list-check" href="/guides/allowed-actions">
+    Constrain what your agent can return.
+  </Card>
+  <Card title="Conversation Context" icon="messages" href="/guides/conversation-context">
+    Give your agents memory across messages.
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/guides/webhooks">
+    Configure webhook endpoints and event filtering.
   </Card>
 </CardGroup>

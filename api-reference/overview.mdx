@@ -1,6 +1,6 @@
 ---
 title: API Overview
-description: The WhatsRB Cloud REST API lets you send WhatsApp messages, manage templates, configure webhooks, and monitor usage from any language or platform.
+description: REST API to manage AI agents, WhatsApp messaging, and structured workflows.
 ---
 
 <Info>
@@ -10,23 +10,32 @@ description: The WhatsRB Cloud REST API lets you send WhatsApp messages, manage 
 ## Resources
 
 <CardGroup cols={3}>
+  <Card title="Agents" icon="brain">
+    Create AI agents with system prompts, allowed actions, and structured fields. Run them on inbound messages or via API.
+  </Card>
+  <Card title="Agent Runs" icon="play">
+    Trigger agent executions and inspect results — structured output, tokens, latency, and conversation context.
+  </Card>
   <Card title="Business Accounts" icon="building-2">
-    Connect and manage WhatsApp Business accounts via the official Meta API. Supports the embedded signup flow.
+    Connect WhatsApp Business accounts via Meta OAuth. Manage settings and human takeover duration.
   </Card>
   <Card title="Messages" icon="message-circle">
-    Send text, images, documents, and template messages to your customers at scale.
+    Send text, images, documents, and template messages. Outbound messages auto-extend human takeover pauses.
+  </Card>
+  <Card title="Conversation Pauses" icon="hand">
+    Pause AI agents per-conversation when a human takes over. Auto-expires, auto-extends on outbound.
   </Card>
   <Card title="Templates" icon="layout-template">
     Create, sync from Meta, and send pre-approved message templates with dynamic variables.
   </Card>
   <Card title="Webhooks" icon="webhook">
-    Register endpoints to receive real-time delivery receipts and inbound message events.
+    Register endpoints for real-time events: agent runs, messages, statuses, pauses, and quota alerts.
   </Card>
   <Card title="Sessions" icon="smartphone">
-    Manage WhatsApp Web sessions (separate from the official Business Platform). Phone must stay connected. For production, prefer Business Accounts.
+    Manage WhatsApp Web sessions via Baileys bridge. For dev/testing — use Business Accounts in production.
   </Card>
   <Card title="Usage" icon="bar-chart-2">
-    Monitor your plan limits, message throughput, and delivery metrics.
+    Monitor plan limits, message throughput, agent runs, and delivery metrics.
   </Card>
 </CardGroup>
 
@@ -51,10 +60,11 @@ All responses return JSON. Successful responses wrap data in a `data` key:
 ```json
 {
   "data": {
-    "id": "acc_01hx...",
-    "waba_id": "123456789",
-    "business_name": "Acme Corp",
-    "status": "active"
+    "id": "agt_abc123",
+    "name": "Support Agent",
+    "model": "gpt-4o-mini",
+    "active": true,
+    "allowed_actions": ["support.refund.process", "support.ticket.create"]
   }
 }
 ```
