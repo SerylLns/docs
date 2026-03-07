@@ -36,6 +36,8 @@ tags:
     description: Pre-built agent configurations for one-click creation.
   - name: Usage
     description: Monitor your plan usage and message metrics.
+  - name: Conversation Pauses
+    description: Pause AI agents for a specific phone number (human takeover).
   - name: Connects
     description: Track embedded signup connect requests.
 
@@ -857,6 +859,8 @@ paths:
                           - agent_run.failed
                           - quota.warning
                           - quota.exceeded
+                          - conversation.paused
+                          - conversation.resumed
       responses:
         "201":
           description: Created
@@ -1287,6 +1291,149 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  # ── Conversation Pauses ───────────────────────────────────────────────────────
+
+  /business_accounts/{business_account_id}/conversation_pauses:
+    parameters:
+      - name: business_account_id
+        in: path
+        required: true
+        schema: { type: string }
+
+    get:
+      summary: List conversation pauses
+      description: |
+        Returns active pauses for this business account. Pass `?include_expired=true` to include expired and resumed pauses.
+      tags: [Conversation Pauses]
+      parameters:
+        - name: include_expired
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ConversationPause" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+    post:
+      summary: Create a conversation pause
+      description: |
+        Pause AI agents for a specific phone number. If a pause already exists for
+        this phone number, it is prolonged instead of creating a new one.
+      tags: [Conversation Pauses]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone_number]
+              properties:
+                phone_number:
+                  type: string
+                  description: "Phone number to pause (e.g. +33612345678)"
+                  example: "+33612345678"
+                duration_minutes:
+                  type: integer
+                  description: "Override pause duration in minutes (default: account's human_takeover_duration)"
+                  example: 60
+      responses:
+        "201":
+          description: Created (or prolonged)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/ConversationPause" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /business_accounts/{business_account_id}/conversation_pauses/check:
+    parameters:
+      - name: business_account_id
+        in: path
+        required: true
+        schema: { type: string }
+
+    get:
+      summary: Check pause status for a phone number
+      description: |
+        Quick check whether AI agents are currently paused for a given phone number.
+      tags: [Conversation Pauses]
+      parameters:
+        - name: phone_number
+          in: query
+          required: true
+          schema: { type: string }
+          example: "+33612345678"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paused: { type: boolean }
+                  pause:
+                    nullable: true
+                    allOf:
+                      - { $ref: "#/components/schemas/ConversationPause" }
+                    description: Present when paused is true
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /business_accounts/{business_account_id}/conversation_pauses/{id}:
+    parameters:
+      - name: business_account_id
+        in: path
+        required: true
+        schema: { type: string }
+      - { $ref: "#/components/parameters/ResourceId" }
+
+    get:
+      summary: Get a conversation pause
+      tags: [Conversation Pauses]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/ConversationPause" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+    delete:
+      summary: Resume a conversation pause
+      description: |
+        Resume AI agents for this phone number by ending the pause.
+        This is a soft-delete: the pause record is kept with a `resumed_at` timestamp.
+      tags: [Conversation Pauses]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/ConversationPause" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 # ── Components ─────────────────────────────────────────────────────────────────
 
 components:
@@ -1324,6 +1471,11 @@ components:
         status: { type: string }
         quality_rating: { type: string, nullable: true }
         connected: { type: boolean }
+        human_takeover_duration:
+          type: integer
+          description: "Default pause duration in minutes for human takeover"
+          default: 30
+          example: 30
         meta_token_expires_at: { type: string, format: date-time, nullable: true }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -1517,6 +1669,24 @@ components:
         name: { type: string }
         description: { type: string }
         system_prompt: { type: string }
+
+    ConversationPause:
+      type: object
+      properties:
+        id: { type: integer }
+        phone_number: { type: string, example: "33612345678" }
+        reason:
+          type: string
+          enum: [manual, outbound_detected, agent_proposed]
+          description: |
+            How the pause was created:
+            - `manual` — created via API or dashboard
+            - `outbound_detected` — auto-created when a manual outbound message is sent
+            - `agent_proposed` — the AI agent requested a human handoff
+        expires_at: { type: string, format: date-time }
+        resumed_at: { type: string, format: date-time, nullable: true, description: "Non-null when the pause was manually resumed" }
+        remaining_minutes: { type: integer, description: "Minutes until expiry (0 if expired or resumed)" }
+        created_at: { type: string, format: date-time }
 
     AgentMetrics:
       type: object
