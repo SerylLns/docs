@@ -20,8 +20,8 @@
   "navbar": {
     "links": [
       {
-        "label": "GitHub",
-        "href": "https://github.com/SerylLns/whatsrb-sdk"
+        "label": "GitLab",
+        "href": "https://gitlab.com/whatsrb/sdk-ruby"
       },
       {
         "label": "Need help?",
@@ -113,7 +113,7 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/SerylLns/whatsrb-sdk"
+      "website": "https://gitlab.com/whatsrb"
     }
   },
   "feedback": {
