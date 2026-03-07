@@ -1,0 +1,118 @@
+---
+title: TypeScript SDK
+description: Official TypeScript client for the WhatsRB Cloud API.
+---
+
+## Installation
+
+```bash
+npm install @whatsrb/cloud
+```
+
+## Setup
+
+```typescript
+import { WhatsrbCloudClient } from '@whatsrb/cloud';
+
+WhatsrbCloudClient.configure({
+  apiKey: process.env.WHATSRB_API_KEY,
+});
+
+const client = new WhatsrbCloudClient();
+```
+
+Or pass the key directly:
+
+```typescript
+const client = new WhatsrbCloudClient({ apiKey: 'wrb_live_xxx' });
+```
+
+## Quick example
+
+```typescript
+// Create an agent
+const agent = await client.agents.create({
+  name: 'Support Agent',
+  system_prompt: 'Handle customer support requests.',
+  allowed_actions: ['support.refund.process', 'support.ticket.create'],
+});
+
+// Run it
+const run = await agent.run({ input: 'I want a refund for order ORD-1234' });
+
+run.actions;       // [{ type: "support.refund.process", payload: { order_id: "ORD-1234" } }]
+run.suggestedReply // "I'll process that refund for order ORD-1234."
+
+// Send a message via Business API
+const accounts = await client.businessAccounts.list();
+const account = accounts.data[0];
+await account.sendText({ to: '+33612345678', text: run.suggestedReply! });
+```
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Agents" icon="bot" href="/sdks/typescript/agents">
+    Create AI agents, run them against messages, and handle structured actions.
+  </Card>
+  <Card title="Business Accounts" icon="building-2" href="/sdks/typescript/business-accounts">
+    Connect and manage WhatsApp Business accounts.
+  </Card>
+  <Card title="Business Messages" icon="message-circle" href="/sdks/typescript/business-messages">
+    Send text and template messages via the Business API.
+  </Card>
+  <Card title="Templates" icon="layout-template" href="/sdks/typescript/templates">
+    Create, sync and manage message templates.
+  </Card>
+  <Card title="Sessions" icon="smartphone" href="/sdks/typescript/sessions">
+    WhatsApp Web sessions (separate from Business Platform).
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/sdks/typescript/webhooks">
+    Register endpoints and verify signatures.
+  </Card>
+</CardGroup>
+
+## Error handling
+
+All SDK methods throw typed exceptions:
+
+```typescript
+import {
+  WhatsrbCloudError,
+  AuthenticationError,
+  NotFoundError,
+  RateLimitError,
+  ValidationError,
+  ServerError,
+} from '@whatsrb/cloud';
+
+try {
+  await account.sendText({ to: '+33612345678', text: 'Hello!' });
+} catch (error) {
+  if (error instanceof AuthenticationError) {
+    // Invalid API key
+  } else if (error instanceof NotFoundError) {
+    // Account not found
+  } else if (error instanceof RateLimitError) {
+    console.log(`Retry after ${error.retryAfter}s`);
+  } else if (error instanceof ValidationError) {
+    // Invalid parameters
+    console.log(error.details);
+  } else if (error instanceof ServerError) {
+    // 5xx from the API
+  } else if (error instanceof WhatsrbCloudError) {
+    // Base class for all SDK errors
+    console.log(error.status, error.body);
+  }
+}
+```
+
+| Exception | HTTP status |
+|-----------|------------|
+| `AuthenticationError` | 401 |
+| `ForbiddenError` | 403 |
+| `NotFoundError` | 404 |
+| `ConflictError` | 409 |
+| `ValidationError` | 422 |
+| `RateLimitError` | 429 |
+| `ServerError` | 5xx |

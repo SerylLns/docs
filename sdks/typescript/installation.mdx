@@ -1,0 +1,48 @@
+---
+title: Installation
+description: Install the WhatsRB Cloud TypeScript SDK.
+---
+
+## npm
+
+```bash
+npm install @whatsrb/cloud
+```
+
+## yarn
+
+```bash
+yarn add @whatsrb/cloud
+```
+
+## pnpm
+
+```bash
+pnpm add @whatsrb/cloud
+```
+
+## Requirements
+
+- **Node.js 18+** (uses native `fetch`)
+- Zero runtime dependencies
+
+## Verify installation
+
+```typescript
+import { WhatsrbCloudClient } from '@whatsrb/cloud';
+
+const client = new WhatsrbCloudClient({ apiKey: 'test' });
+console.log(client); // WhatsrbCloudClient instance
+```
+
+## ESM & CommonJS
+
+The SDK ships both ESM and CJS builds:
+
+```typescript
+// ESM (recommended)
+import { WhatsrbCloudClient } from '@whatsrb/cloud';
+
+// CommonJS
+const { WhatsrbCloudClient } = require('@whatsrb/cloud');
+```

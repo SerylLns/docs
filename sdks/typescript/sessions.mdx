@@ -1,0 +1,116 @@
+---
+title: Sessions
+description: Manage WhatsApp Web sessions (session-based channel).
+---
+
+<Warning>
+  **Session-based channel** — Sessions use WhatsApp Web under the hood. This is a separate channel from the official WhatsApp Business Platform (Meta API). The phone must stay connected, and this channel is subject to WhatsApp Web limitations. For production workloads, we recommend using [Business Accounts](/sdks/typescript/business-accounts) with the official Meta API.
+</Warning>
+
+## List sessions
+
+```typescript
+const result = await client.sessions.list();
+result.data;  // Session[]
+result.meta;  // { total: 2 }
+```
+
+## Create a session
+
+```typescript
+const session = await client.sessions.create({ name: 'My Session' });
+session.id;      // "ses_01hx..."
+session.status;  // "qr_pending"
+session.qrCode;  // "data:image/png;base64,..."
+```
+
+## Scan QR and wait for connection
+
+```typescript
+const session = await client.sessions.create({ name: 'Production' });
+
+// Display QR to the user, poll until connected
+await session.waitForQr({
+  timeout: 60_000,
+  interval: 2_000,
+  onQr: (qrCode) => console.log(`Scan this QR: ${qrCode}`),
+});
+
+session.isConnected;  // true
+session.phoneNumber;  // "+33612345678"
+```
+
+## Retrieve a session
+
+```typescript
+const session = await client.sessions.retrieve('ses_01hx...');
+session.status;       // "connected"
+session.phoneNumber;  // "+33612345678"
+```
+
+## Reload session state
+
+```typescript
+await session.reload();
+// or:
+await session.refresh();
+```
+
+## Delete a session
+
+```typescript
+await client.sessions.delete('ses_01hx...');  // true
+```
+
+## Send messages
+
+```typescript
+const sessions = await client.sessions.list();
+const session = sessions.data[0];
+
+// Text
+await session.sendMessage({ to: '+33699887766', text: 'Hello!' });
+
+// Image
+await session.sendImage({ to: '+33699887766', url: 'https://example.com/image.png' });
+
+// Video
+await session.sendVideo({ to: '+33699887766', url: 'https://example.com/video.mp4' });
+
+// Audio
+await session.sendAudio({ to: '+33699887766', url: 'https://example.com/audio.ogg' });
+
+// Document
+await session.sendDocument({ to: '+33699887766', url: 'https://example.com/file.pdf' });
+
+// Location
+await session.sendLocation({ to: '+33699887766', latitude: 48.8566, longitude: 2.3522 });
+
+// Contact
+await session.sendContact({ to: '+33699887766', name: 'John Doe', phone: '+33611223344' });
+```
+
+## Access the messages resource
+
+```typescript
+const messages = session.messages();
+// or:
+const messages = client.messages(session.id);
+
+const result = await messages.list();
+const msg = await messages.retrieve('msg_01hz...');
+```
+
+## Session properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | string | Session ID |
+| `name` | string | Session label |
+| `status` | string | `connecting`, `qr_pending`, `connected`, `disconnected` |
+| `phoneNumber` | string | Connected phone number |
+| `qrCode` | string | Base64 QR image (while `qr_pending`) |
+| `statusReason` | string | Reason for current status (e.g. `phone_offline`) |
+| `connected` | boolean | Whether session is connected (boolean from API) |
+| `lastConnectedAt` | string | Last successful connection timestamp (ISO 8601) |
+| `isConnected` | boolean | Whether session is active |

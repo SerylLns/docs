@@ -1,0 +1,63 @@
+---
+title: Configuration
+description: Configure the WhatsRB Cloud TypeScript SDK.
+---
+
+## Global configuration
+
+```typescript
+import { WhatsrbCloudClient } from '@whatsrb/cloud';
+
+WhatsrbCloudClient.configure({
+  apiKey: process.env.WHATSRB_API_KEY,
+  baseUrl: 'https://whatsrb.com',  // default
+  timeout: 30_000,                  // ms, default
+});
+```
+
+## Default client
+
+After configuring globally, create a client without options:
+
+```typescript
+WhatsrbCloudClient.configure({
+  apiKey: process.env.WHATSRB_API_KEY,
+});
+
+const client = new WhatsrbCloudClient();
+await client.agents.list();
+await client.webhooks.list();
+```
+
+Reset with `WhatsrbCloudClient.resetConfiguration()`.
+
+## Per-client configuration
+
+```typescript
+const client = new WhatsrbCloudClient({
+  apiKey: 'wrb_live_xxx',
+  baseUrl: 'https://whatsrb.com',
+  timeout: 60_000,
+});
+```
+
+Per-client options override the global configuration.
+
+## Next.js / Vercel
+
+```typescript
+// lib/whatsrb.ts
+import { WhatsrbCloudClient } from '@whatsrb/cloud';
+
+export const whatsrb = new WhatsrbCloudClient({
+  apiKey: process.env.WHATSRB_API_KEY,
+});
+```
+
+## Available options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `apiKey` | — | Your WhatsRB API key (required) |
+| `baseUrl` | `https://whatsrb.com` | API base URL |
+| `timeout` | `30000` | Request timeout in milliseconds |

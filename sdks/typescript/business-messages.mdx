@@ -1,0 +1,192 @@
+---
+title: Business Messages
+description: Send messages via the WhatsApp Business API.
+---
+
+Access messages through a `BusinessAccount` object or directly via the client.
+
+## Check the 24h conversation window
+
+Before sending a free-form message (text, image, video, etc.), check whether the conversation window is open. The window opens when the contact sends you an inbound message and expires 24 hours later.
+
+```typescript
+const accounts = await client.businessAccounts.list();
+const account = accounts.data[0];
+
+// Simple check
+if (await account.windowOpen('+33699887766')) {
+  await account.sendText({ to: '+33699887766', text: 'Thanks for reaching out!' });
+} else {
+  // Window closed — send a template instead
+  await account.sendTemplate({
+    to: '+33699887766',
+    templateName: 'follow_up',
+    templateLanguage: 'en_US',
+  });
+}
+```
+
+Get detailed window info (last inbound timestamp, expiration):
+
+```typescript
+const info = await account.window('+33699887766');
+info.open;            // true
+info.last_inbound_at; // "2026-03-06T10:00:00Z"
+info.expires_at;      // "2026-03-07T10:00:00Z"
+```
+
+<Tip>
+  Outside the 24h window, Meta only allows **template messages**. Free-form messages (text, media) will be rejected. Always check the window before sending non-template messages.
+</Tip>
+
+## Send a text message
+
+```typescript
+const msg = await account.sendText({ to: '+33699887766', text: 'Hello!' });
+msg.id;      // "msg_01hz..."
+msg.status;  // "queued"
+```
+
+## Send a template message
+
+```typescript
+const msg = await account.sendTemplate({
+  to: '+33699887766',
+  templateName: 'order_confirmation',
+  templateLanguage: 'en_US',
+});
+```
+
+## Send media messages
+
+Within the 24-hour conversation window, you can send images, videos, audio, and documents by URL:
+
+```typescript
+// Image
+await account.sendImage({ to: '+33699887766', url: 'https://example.com/photo.jpg' });
+
+// Video
+await account.sendVideo({ to: '+33699887766', url: 'https://example.com/clip.mp4' });
+
+// Audio
+await account.sendAudio({ to: '+33699887766', url: 'https://example.com/voice.ogg' });
+
+// Document
+await account.sendDocument({ to: '+33699887766', url: 'https://example.com/invoice.pdf' });
+```
+
+<Note>
+  Media URLs must be publicly accessible. Meta downloads the file once and delivers it natively in the recipient's WhatsApp chat. Supported formats: JPEG/PNG (image), MP4 (video), OGG/MP3 (audio), PDF/DOCX (document).
+</Note>
+
+<Warning>
+  **Meta file size limits:** Image: 5 MB — Video: 16 MB — Audio: 16 MB — Document: 100 MB. Files exceeding these limits will be rejected by Meta.
+</Warning>
+
+## Send interactive buttons
+
+Send a message with up to 3 reply buttons. The recipient taps a button and you receive the response via webhook.
+
+```typescript
+// With object buttons (full control over IDs)
+await account.sendButtons({
+  to: '+33699887766',
+  body: 'Would you like to proceed?',
+  buttons: [
+    { id: 'confirm', title: 'Yes, confirm' },
+    { id: 'cancel', title: 'No, cancel' },
+  ],
+});
+
+// With string shortcuts (IDs auto-generated as btn_0, btn_1, ...)
+await account.sendButtons({
+  to: '+33699887766',
+  body: 'Rate your experience:',
+  buttons: ['Great', 'OK', 'Poor'],
+});
+```
+
+When the recipient taps a button, you receive a webhook `message.received` with:
+- `message_type`: `"interactive"`
+- `message_metadata.interactive_type`: `"button_reply"`
+- `message_metadata.id`: the button ID (e.g. `"confirm"`)
+- `message_metadata.title`: the button label (e.g. `"Yes, confirm"`)
+
+```typescript
+// In your webhook handler
+import { EventRegistry } from '@whatsrb/cloud';
+
+const registry = new EventRegistry();
+
+registry.on('message.received', (data) => {
+  if (data.message_type === 'interactive') {
+    const meta = data.message_metadata as Record<string, unknown>;
+    switch (meta.id) {
+      case 'confirm': processConfirmation(data); break;
+      case 'cancel':  handleCancellation(data); break;
+    }
+  }
+});
+```
+
+<Warning>
+  **Limits:** Max 3 buttons per message. Button titles max 20 characters. Interactive messages require an open 24h conversation window (no template fallback).
+</Warning>
+
+## Using the messages resource directly
+
+```typescript
+const messages = client.businessMessages(account.id);
+
+const msg = await messages.create({
+  to: '+33699887766',
+  messageType: 'text',
+  content: 'Hello!',
+});
+```
+
+## List messages
+
+```typescript
+const result = await account.messages().list();
+result.data;  // Message[]
+result.meta;  // { total: 42 }
+```
+
+Only returns the last 100 messages, ordered newest first.
+
+## Retrieve a message
+
+```typescript
+const msg = await account.messages().retrieve('msg_01hz...');
+msg.status;      // "delivered"
+msg.deliveredAt; // "2026-01-01T12:00:05Z"
+```
+
+## Message properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | string | WhatsRB message ID |
+| `direction` | string | `outbound` |
+| `to` | string | Recipient phone number |
+| `messageType` | string | `text`, `template`, `image`, `video`, `audio`, `document`, `interactive` |
+| `content` | string | Message text |
+| `templateName` | string | Template name (if template) |
+| `templateLanguage` | string | Template language (if template) |
+| `status` | string | `queued`, `sent`, `delivered`, `read`, `failed` |
+| `wamid` | string | WhatsApp message ID (set after delivery) |
+| `errorMessage` | string | Error detail (if failed) |
+| `sentAt` | string | When sent to Meta |
+| `deliveredAt` | string | When delivered to recipient |
+| `readAt` | string | When read by recipient |
+
+## Status helpers
+
+```typescript
+msg.isQueued;    // true
+msg.isSent;      // false
+msg.isDelivered; // false
+msg.isRead;      // false
+msg.isFailed;    // false
+```

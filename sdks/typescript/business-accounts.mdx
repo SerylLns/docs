@@ -1,0 +1,107 @@
+---
+title: Business Accounts
+description: Connect and manage WhatsApp Business accounts.
+---
+
+## List accounts
+
+```typescript
+const result = await client.businessAccounts.list();
+
+result.data;  // BusinessAccount[]
+result.meta;  // { total: 1, plan_limit: 5 }
+```
+
+## Retrieve an account
+
+```typescript
+const account = await client.businessAccounts.retrieve('acc_01hx...');
+account.id;            // "acc_01hx..."
+account.wabaId;        // "123456789"
+account.businessName;  // "Acme Corp"
+account.phoneNumber;   // "+33612345678"
+account.displayName;   // "Acme"
+account.status;        // "active"
+account.qualityRating; // "GREEN"
+account.isConnected;   // true
+```
+
+## Connect via embedded signup
+
+Generates a URL to redirect your user through the Meta embedded signup flow:
+
+```typescript
+const request = await client.businessAccounts.connect();
+
+request.id;        // "con_01hx..."
+request.url;       // "https://whatsrb.com/connect/TOKEN"
+request.status;    // "pending"
+request.expiresAt; // "2026-01-01T12:05:00Z"
+
+// Poll until the user completes signup (up to 5 minutes)
+const account = await request.waitForAccount({ timeout: 300_000, interval: 3_000 });
+account.businessName; // "Acme Corp"
+```
+
+## Connect manually (direct credentials)
+
+<Warning>
+  Manual accounts can only **send** messages. To also **receive** incoming messages, you must configure your Meta app's webhook. See [Meta Webhook Setup](/guides/meta-webhook-setup).
+</Warning>
+
+```typescript
+const account = await client.businessAccounts.connectManual({
+  waba_id: '123456789',
+  phone_number_id: '987654321',
+  business_name: 'Acme Corp',
+  display_name: 'Acme',
+  phone_number: '+33612345678',
+  meta_access_token: 'EAAxxxxxxx',
+});
+```
+
+## Delete an account
+
+```typescript
+await client.businessAccounts.delete('acc_01hx...');  // true
+```
+
+## Send messages from an account
+
+```typescript
+const accounts = await client.businessAccounts.list();
+const account = accounts.data[0];
+
+// Text message
+await account.sendText({ to: '+33699887766', text: 'Hello!' });
+
+// Template message
+await account.sendTemplate({
+  to: '+33699887766',
+  templateName: 'order_confirmation',
+  templateLanguage: 'en_US',
+});
+
+// Media messages (within 24h conversation window)
+await account.sendImage({ to: '+33699887766', url: 'https://example.com/photo.jpg' });
+await account.sendVideo({ to: '+33699887766', url: 'https://example.com/clip.mp4' });
+await account.sendAudio({ to: '+33699887766', url: 'https://example.com/voice.ogg' });
+await account.sendDocument({ to: '+33699887766', url: 'https://example.com/invoice.pdf' });
+```
+
+## BusinessAccount properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | string | WhatsRB account ID |
+| `wabaId` | string | WhatsApp Business Account ID |
+| `businessName` | string | Registered business name |
+| `displayName` | string | Display name on WhatsApp |
+| `phoneNumber` | string | Phone number in E.164 format |
+| `phoneNumberId` | string | Meta phone number ID |
+| `status` | string | `active`, `disconnected`, etc. |
+| `qualityRating` | string | `GREEN`, `YELLOW`, `RED` |
+| `isConnected` | boolean | Whether account is connected |
+| `metaTokenExpiresAt` | string | Meta access token expiration (ISO 8601) |
+| `windowOpen(phone)` | boolean | Whether the 24h conversation window is open for this number |
+| `window(phone)` | object | Full window info: `open`, `last_inbound_at`, `expires_at` |

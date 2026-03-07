@@ -1,0 +1,240 @@
+---
+title: Agents
+description: Create AI agents and run them against conversations.
+---
+
+## List agents
+
+```typescript
+const result = await client.agents.list();
+
+for (const agent of result) {
+  console.log(agent.name);
+}
+result.meta;  // { total: 3 }
+```
+
+## Create an agent
+
+```typescript
+const agent = await client.agents.create({
+  name: 'Hotel Concierge',
+  system_prompt: 'You are a hotel operations agent...',
+  business_account_id: 'acc_01hx...',
+});
+
+agent.id;     // "agt_01hx..."
+agent.name;   // "Hotel Concierge"
+agent.active; // true
+```
+
+### With structured fields
+
+Define `payload_schema` to enforce specific fields in the AI output payload:
+
+```typescript
+const agent = await client.agents.create({
+  name: 'Hotel Concierge',
+  system_prompt: 'Extract structured tasks from hotel guest messages.',
+  payload_schema: [
+    { name: 'room_number', field_type: 'text', required: true },
+    { name: 'description', field_type: 'text', required: true },
+    { name: 'due_at', field_type: 'datetime', required: false },
+    { name: 'priority', field_type: 'text', required: false },
+  ],
+});
+
+agent.payloadSchema;  // PayloadSchemaField[]
+```
+
+Available field types: `text`, `number`, `boolean`, `date`, `time`, `datetime`. Max 10 fields.
+
+### With allowed action types
+
+By default, the AI can return any action type (free-form). Set `allowed_actions` to constrain it to a specific list — the AI **can only return values from this list**.
+
+```typescript
+const agent = await client.agents.create({
+  name: 'Support Agent',
+  system_prompt: 'Handle customer support requests.',
+  allowed_actions: [
+    'support.refund.process',
+    'support.ticket.create',
+    'support.escalation.request',
+  ],
+});
+
+agent.allowedActions;  // ["support.refund.process", "support.ticket.create", ...]
+```
+
+Format: `domain.resource.action` (snake_case, 3 segments). Max 10 action types.
+
+When a run completes, every action's `type` is guaranteed to be in this list:
+
+```typescript
+const run = await agent.run({ input: { last_message: 'I want a refund for order #1234' } });
+
+for (const action of run.actions) {
+  switch (action.type) {
+    case 'support.refund.process':
+      await processRefund(action.payload);
+      break;
+    case 'support.ticket.create':
+      await createTicket(action.payload);
+      break;
+    case 'support.escalation.request':
+      await notifyEscalation(action.payload);
+      break;
+  }
+}
+```
+
+<Tip>
+  Without `allowed_actions`, the AI invents action types freely — useful for prototyping but unpredictable in production. Add constraints once you know your action types.
+</Tip>
+
+<Note>
+  `required` instructs the AI to always fill the field — it does not guarantee a value.
+  Always validate on your end before processing actions.
+</Note>
+
+## Retrieve an agent
+
+```typescript
+const agent = await client.agents.retrieve('agt_01hx...');
+agent.isActive;  // true
+agent.isAutoRun; // false
+```
+
+## Update an agent
+
+```typescript
+const agent = await client.agents.update('agt_01hx...', { name: 'Updated Concierge' });
+```
+
+## Delete an agent
+
+```typescript
+await client.agents.delete('agt_01hx...');  // true
+```
+
+## Run an agent
+
+### Synchronous (waits for completion)
+
+Creates a run and polls until it completes or times out:
+
+```typescript
+// String input
+const run = await agent.run({ input: 'Clean room 204 tomorrow at 8' });
+
+// Object input (full control)
+const run = await agent.run({
+  input: {
+    last_message: 'Clean room 204 tomorrow at 8',
+    recent_messages: ['Hi, I have a request'],
+  },
+  timeout: 30_000,  // ms, default
+  interval: 1_000,  // ms, default
+});
+
+run.status;         // "completed"
+run.intent;         // "task_extraction"
+run.confidence;     // 0.95
+run.actions;        // [{ type: "hospitality.room_service.request", payload: { ... } }]
+run.suggestedReply; // "I'll arrange cleaning for room 204 tomorrow at 8am."
+run.contextSummary; // "Guest requested room 204 cleaning for tomorrow 8am."
+```
+
+### Asynchronous
+
+Creates a run and returns immediately:
+
+```typescript
+const run = await agent.runAsync({ input: 'Clean room 204 tomorrow at 8' });
+run.status;  // "pending"
+
+// Wait for completion later
+await run.wait({ timeout: 30_000 });
+run.status;  // "completed"
+```
+
+## List runs
+
+```typescript
+// From an agent object
+const runs = await agent.runs().list();
+
+// From the client
+const runs = await client.agentRuns('agt_01hx...').list();
+```
+
+## Retrieve a run
+
+```typescript
+const run = await client.agentRuns('agt_01hx...').retrieve('run_01hx...');
+```
+
+## Dispatch actions with a registry
+
+Use an `ActionRegistry` to route agent actions to your service objects:
+
+```typescript
+import { ActionRegistry } from '@whatsrb/cloud';
+
+const registry = new ActionRegistry();
+
+registry
+  .register('create_task', (payload) => createTask(payload))
+  .register('create_ticket', (payload) => createTicket(payload));
+
+// Dispatch all actions from a completed run
+const run = await agent.run({ input: { last_message: 'Fix the AC in room 107' } });
+run.dispatch(registry);
+```
+
+See [Registries](/sdks/typescript/registries) for the full guide.
+
+## Agent properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | string | Agent ID (`agt_...`) |
+| `name` | string | Agent name |
+| `description` | string | Agent description |
+| `model` | string | Model used (`gpt-4o-mini`) |
+| `temperature` | number | LLM temperature |
+| `maxTokens` | number | Max output tokens |
+| `active` | boolean | Whether agent is active |
+| `autoRunInbound` | boolean | Auto-process inbound messages |
+| `debounceSeconds` | number | Batch window for rapid messages |
+| `contextTtlMinutes` | number | Conversation context TTL (default 60) |
+| `businessAccountId` | string | Linked business account |
+| `allowedActions` | string[] | Allowed action types (empty = free-form) |
+| `payloadSchema` | PayloadSchemaField[] | Structured field definitions |
+| `isActive` | boolean | Whether agent is active |
+| `isAutoRun` | boolean | Whether auto-run is enabled |
+
+## AgentRun properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | string | Run ID (`run_...`) |
+| `agentId` | string | Parent agent ID |
+| `status` | string | `pending`, `running`, `completed`, `failed` |
+| `triggeredBy` | string | `api`, `auto_inbound` |
+| `output` | object | Full agent output |
+| `error` | string | Error message if failed |
+| `modelUsed` | string | LLM model used |
+| `inputTokens` | number | Tokens consumed |
+| `outputTokens` | number | Tokens generated |
+| `latencyMs` | number | LLM response latency |
+| `durationMs` | number | Total run duration |
+| `intent` | string | Shortcut for `output.intent` |
+| `confidence` | number | Shortcut for `output.confidence` |
+| `actions` | object[] | Shortcut for `output.actions` |
+| `suggestedReply` | string | Suggested reply in customer's language |
+| `contextSummary` | string | Conversation state for continuity |
+| `isPending` | boolean | Status is pending |
+| `isCompleted` | boolean | Status is completed |
+| `isFailed` | boolean | Status is failed |

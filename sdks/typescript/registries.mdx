@@ -1,0 +1,134 @@
+---
+title: Registries
+description: Route webhook events and agent actions to your handlers.
+---
+
+The SDK provides two registry classes to replace `switch/case` chains with a clean, extensible dispatch pattern.
+
+## ActionRegistry
+
+Routes agent run actions to handler functions based on action type.
+
+### Setup
+
+```typescript
+import { ActionRegistry } from '@whatsrb/cloud';
+
+const registry = new ActionRegistry();
+
+registry
+  .register('support.ticket.create', (payload) => createTicket(payload))
+  .register('housekeeping.task.create', (payload) => createTask(payload))
+  .register('maintenance.request', (payload) => requestMaintenance(payload));
+```
+
+### Dispatch from a run
+
+```typescript
+const run = await agent.run({ input: { last_message: 'Clean room 204 tomorrow' } });
+run.dispatch(registry);
+```
+
+`run.dispatch(registry)` iterates over `run.actions` and calls the matching handler for each action.
+
+### Dispatch manually
+
+```typescript
+// Single action
+registry.dispatch({ type: 'support.ticket.create', payload: { message: 'Help!' } });
+
+// Multiple actions
+registry.dispatchAll(run.actions);
+```
+
+### Introspection
+
+```typescript
+registry.isRegistered('support.ticket.create');  // true
+registry.actionTypes;  // ["support.ticket.create", "housekeeping.task.create", ...]
+```
+
+## EventRegistry
+
+Routes webhook events to handler functions based on event type.
+
+### Setup
+
+```typescript
+import { EventRegistry, AgentRun } from '@whatsrb/cloud';
+
+const events = new EventRegistry();
+
+events
+  .on('agent_run.completed', (data) => {
+    const run = new AgentRun(data);
+    run.dispatch(actionRegistry);
+  })
+  .on('message.received', (data) => processIncomingMessage(data))
+  .on('message.failed', (data) => alertFailedMessage(data));
+```
+
+### Dispatch a webhook payload
+
+```typescript
+events.dispatch(payload);
+// payload = { event: "agent_run.completed", data: { ... } }
+```
+
+Returns `true` if a handler was found, `false` otherwise.
+
+### Multiple handlers
+
+An event can have multiple handlers — they all run in order:
+
+```typescript
+events.on('message.received', (data) => storeMessage(data));
+events.on('message.received', (data) => notifyAgent(data));
+```
+
+### Introspection
+
+```typescript
+events.isRegistered('agent_run.completed');  // true
+events.eventTypes;  // ["agent_run.completed", "message.received", ...]
+```
+
+## Express integration
+
+A typical setup in an Express application:
+
+```typescript
+import express from 'express';
+import { WhatsrbCloudClient, ActionRegistry, EventRegistry, AgentRun, WebhookSignature } from '@whatsrb/cloud';
+
+const client = new WhatsrbCloudClient({ apiKey: process.env.WHATSRB_API_KEY });
+
+// Action registry
+const actions = new ActionRegistry();
+actions
+  .register('create_task', (payload) => createTask(payload))
+  .register('create_ticket', (payload) => createTicket(payload));
+
+// Event registry
+const events = new EventRegistry();
+events.on('agent_run.completed', (data) => {
+  const run = new AgentRun(data);
+  run.dispatch(actions);
+});
+
+// Webhook endpoint
+const app = express();
+app.post('/webhooks/whatsrb', express.raw({ type: 'application/json' }), (req, res) => {
+  const isValid = WebhookSignature.verify({
+    payload: req.body.toString(),
+    secret: process.env.WHATSRB_WEBHOOK_SECRET!,
+    signature: req.headers['x-whatsrb-signature'] as string,
+    timestamp: req.headers['x-webhook-timestamp'] as string,
+  });
+
+  if (!isValid) return res.status(401).end();
+
+  events.dispatch(JSON.parse(req.body.toString()));
+  res.status(200).end();
+});
+```

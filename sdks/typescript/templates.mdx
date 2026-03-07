@@ -1,0 +1,116 @@
+---
+title: Templates
+description: Create, sync, and manage WhatsApp message templates.
+---
+
+Access templates through a `BusinessAccount` or directly via the client.
+
+```typescript
+const accounts = await client.businessAccounts.list();
+const account = accounts.data[0];
+
+const templates = account.templates();
+// or:
+const templates = client.templates(account.id);
+```
+
+## List templates
+
+```typescript
+const result = await templates.list();
+result.data;  // Template[]
+
+// Filter by status or category
+const result = await templates.list({ status: 'approved' });
+const result = await templates.list({ status: 'approved', category: 'MARKETING' });
+```
+
+Status values: `approved`, `pending`, `rejected`.
+
+## Find by name
+
+```typescript
+const tpl = await templates.findByName('order_confirmation');
+tpl?.isApproved;  // true
+```
+
+## Retrieve a template
+
+```typescript
+const tpl = await templates.retrieve('tpl_01hx...');
+tpl.name;     // "order_confirmation"
+tpl.status;   // "approved"
+tpl.language; // "en_US"
+tpl.category; // "UTILITY"
+```
+
+## Create a template
+
+```typescript
+const tpl = await templates.create({
+  name: 'order_confirmation',
+  category: 'UTILITY',
+  language: 'en_US',
+  components: [
+    {
+      type: 'BODY',
+      text: 'Your order {{1}} has been confirmed.',
+    },
+  ],
+});
+tpl.status;  // "pending"  (awaiting Meta approval)
+```
+
+## Sync from Meta
+
+Pulls the latest template statuses from Meta and updates your local records:
+
+```typescript
+const result = await templates.sync();
+result.data;  // Template[]
+```
+
+## Clone a template
+
+```typescript
+const clone = await templates.clone('tpl_01hx...');
+clone.name;  // "order_confirmation_copy"
+```
+
+## Send a test message
+
+```typescript
+const msg = await templates.sendTest('tpl_01hx...', {
+  to: '+33699887766',
+  variables: ['ORDER-123'],
+});
+msg.status;  // "queued"
+```
+
+## Delete a template
+
+```typescript
+await templates.delete('tpl_01hx...');  // true
+```
+
+## Template properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | string | WhatsRB template ID |
+| `metaTemplateId` | string | Meta template ID |
+| `name` | string | Template name |
+| `category` | string | `UTILITY`, `MARKETING`, `AUTHENTICATION` |
+| `status` | string | `approved`, `pending`, `rejected` |
+| `language` | string | Language code (e.g. `en_US`) |
+| `headerType` | string | `TEXT`, `IMAGE`, `VIDEO`, `DOCUMENT` |
+| `components` | unknown[] | Template components |
+| `rejectionReason` | string | Reason if rejected |
+
+## Status helpers
+
+```typescript
+tpl.isApproved;  // true
+tpl.isPending;   // false
+tpl.isRejected;  // false
+```

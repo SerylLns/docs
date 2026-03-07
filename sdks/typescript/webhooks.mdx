@@ -1,0 +1,154 @@
+---
+title: Webhooks
+description: Manage webhook endpoints and verify incoming signatures.
+---
+
+## List endpoints
+
+```typescript
+const result = await client.webhooks.list();
+result.data;  // Webhook[]
+```
+
+## Create an endpoint
+
+```typescript
+const webhook = await client.webhooks.create({
+  url: 'https://yourapp.com/webhooks/whatsrb',
+  events: ['message.received', 'message.status', 'message.failed'],
+});
+
+webhook.id;       // 1
+webhook.url;      // "https://yourapp.com/webhooks/whatsrb"
+webhook.events;   // ["message.received", "message.status", "message.failed"]
+webhook.secret;   // "whsec_xxx"  — only present on create, store it now!
+webhook.isActive; // true
+```
+
+Passing no `events` subscribes to all events.
+
+## Retrieve an endpoint
+
+```typescript
+const webhook = await client.webhooks.retrieve('1');
+```
+
+## Update an endpoint
+
+```typescript
+const webhook = await client.webhooks.update('1', {
+  url: 'https://yourapp.com/new-path',
+  active: false,
+  events: ['message.failed'],
+});
+```
+
+## Delete an endpoint
+
+```typescript
+await client.webhooks.delete('1');  // true
+```
+
+## Verify incoming signatures
+
+Every webhook request includes `X-Webhook-Signature` and `X-Webhook-Event` headers. Verify the signature before processing.
+
+### Manual method
+
+```typescript
+import { WebhookSignature } from '@whatsrb/cloud';
+
+const isValid = WebhookSignature.verify({
+  payload: rawBody,
+  secret: process.env.WHATSRB_WEBHOOK_SECRET!,
+  signature: request.headers['x-whatsrb-signature'] ?? request.headers['x-webhook-signature'],
+  timestamp: request.headers['x-webhook-timestamp'],
+});
+```
+
+### Express example
+
+```typescript
+import express from 'express';
+import { WebhookSignature, EventRegistry } from '@whatsrb/cloud';
+
+const app = express();
+const events = new EventRegistry();
+
+events.on('agent_run.completed', (data) => {
+  console.log('Run completed:', data);
+});
+
+app.post('/webhooks/whatsrb', express.raw({ type: 'application/json' }), (req, res) => {
+  const isValid = WebhookSignature.verify({
+    payload: req.body.toString(),
+    secret: process.env.WHATSRB_WEBHOOK_SECRET!,
+    signature: req.headers['x-whatsrb-signature'] as string,
+    timestamp: req.headers['x-webhook-timestamp'] as string,
+  });
+
+  if (!isValid) return res.status(401).end();
+
+  const payload = JSON.parse(req.body.toString());
+  events.dispatch(payload);
+  res.status(200).end();
+});
+```
+
+### Next.js API route
+
+```typescript
+// app/api/webhooks/whatsrb/route.ts
+import { WebhookSignature } from '@whatsrb/cloud';
+import { NextResponse } from 'next/server';
+
+export async function POST(request: Request) {
+  const body = await request.text();
+  const signature = request.headers.get('x-whatsrb-signature') ?? '';
+  const timestamp = request.headers.get('x-webhook-timestamp') ?? undefined;
+
+  if (!WebhookSignature.verify({
+    payload: body,
+    secret: process.env.WHATSRB_WEBHOOK_SECRET!,
+    signature,
+    timestamp,
+  })) {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+  }
+
+  const payload = JSON.parse(body);
+  // Handle the event...
+  return NextResponse.json({ ok: true });
+}
+```
+
+The signature format is `sha256=<HMAC-SHA256(secret, raw_body)>`.
+
+<Info>
+  For routing events to handlers, see [Registries](/sdks/typescript/registries).
+</Info>
+
+## Webhook properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | string | Endpoint ID |
+| `url` | string | Your HTTPS endpoint URL |
+| `events` | string[] | Subscribed event types |
+| `isActive` | boolean | Whether endpoint is active |
+| `secret` | string | Signing secret (only on create) |
+
+## Supported events
+
+| Event | When |
+|-------|------|
+| `message.received` | Inbound message received |
+| `message.status` | Message status updated |
+| `message.failed` | Message failed to send |
+| `session.connected` | Session connected |
+| `session.disconnected` | Session disconnected |
+| `session.failed` | Session connection failed |
+| `quota.warning` | Approaching daily quota |
+| `quota.exceeded` | Daily quota exceeded |
+| `agent_run.completed` | Agent run finished successfully |
+| `agent_run.failed` | Agent run failed |
