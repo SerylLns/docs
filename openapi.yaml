@@ -986,6 +986,7 @@ paths:
                     active: { type: boolean, default: true }
                     auto_run_inbound: { type: boolean, default: false }
                     debounce_seconds: { type: integer, minimum: 1, maximum: 60, default: 10 }
+                    context_ttl_minutes: { type: integer, minimum: 0, maximum: 1440, default: 60, description: "How long (in minutes) to keep conversation context between agent runs for the same phone number. 0 = disabled." }
                     inbound_config: { $ref: "#/components/schemas/InboundConfig" }
                     allowed_actions:
                       type: array
@@ -1048,6 +1049,7 @@ paths:
                     active: { type: boolean }
                     auto_run_inbound: { type: boolean }
                     debounce_seconds: { type: integer }
+                    context_ttl_minutes: { type: integer, minimum: 0, maximum: 1440, description: "How long (in minutes) to keep conversation context. 0 = disabled." }
                     inbound_config: { $ref: "#/components/schemas/InboundConfig" }
                     allowed_actions:
                       type: array
@@ -1576,6 +1578,11 @@ components:
         active: { type: boolean }
         auto_run_inbound: { type: boolean }
         debounce_seconds: { type: integer, example: 10 }
+        context_ttl_minutes:
+          type: integer
+          default: 60
+          description: "How long (in minutes) to keep conversation context between agent runs for the same phone number. When a new message arrives, the agent receives the previous run's context_summary and output to understand follow-up messages. Set to 0 to disable."
+          example: 60
         inbound_config: { $ref: "#/components/schemas/InboundConfig" }
         allowed_actions:
           type: array
@@ -1658,6 +1665,7 @@ components:
         output_tokens: { type: integer, nullable: true }
         latency_ms: { type: integer, nullable: true }
         duration_ms: { type: integer, nullable: true }
+        context_summary: { type: string, nullable: true, description: "LLM-generated one-line summary of the conversation state. Used to inject context into the next agent run for the same phone number." }
         error_message: { type: string, nullable: true, description: Present when status is failed }
         completed_at: { type: string, format: date-time, nullable: true }
         created_at: { type: string, format: date-time }

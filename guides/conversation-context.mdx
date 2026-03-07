@@ -1,0 +1,77 @@
+---
+title: "Conversation Context"
+description: "Give your agents memory across messages — they understand follow-ups, not just standalone requests."
+---
+
+## The problem
+
+Without context, each agent run is stateless. When a guest asks *"I need towels for room B12"* and the concierge replies *"Large or small?"*, the next message *"medium"* means nothing to the agent — it has no memory of the previous exchange.
+
+## How it works
+
+WhatsRB automatically injects **conversation context** into each agent run, so the agent understands the conversation history:
+
+1. After each run, the agent generates a **context_summary** — a one-line snapshot of the conversation state (intent, extracted fields, pending questions).
+2. On the next inbound message from the **same phone number**, WhatsRB injects the previous run's `context_summary` and `last_agent_output` (intent + actions) into the agent's input.
+3. The agent uses this context to correctly interpret follow-up messages.
+
+<Note>
+Context is scoped per **agent + phone number**. Two different agents or two different phone numbers never share context.
+</Note>
+
+## Configuration
+
+Control context duration with `context_ttl_minutes` on the agent:
+
+```ruby
+# SDK
+client.agents.update(agent_id, context_ttl_minutes: 120) # 2 hours
+client.agents.update(agent_id, context_ttl_minutes: 0)   # Disable context
+```
+
+```bash
+# API
+curl -X PATCH /api/v1/agents/:id \
+  -d '{"agent": {"context_ttl_minutes": 120}}'
+```
+
+| Value | Behavior |
+|-------|----------|
+| `60` (default) | Context from runs completed within the last 60 minutes is injected |
+| `0` | Context injection is disabled — every run is standalone |
+| `1440` | Maximum — 24 hours of context retention |
+
+## What gets injected
+
+When a previous run exists within the TTL window, the agent receives two extra fields in its input:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `context_summary` | string | LLM-generated one-liner: *"Guest in B12 requested towels, asked about size"* |
+| `last_agent_output` | object | Previous run's `intent` and `actions` (structured data, not raw text) |
+
+## Example flow
+
+```
+Message 1: "I need towels for room B12"
+  → Agent output: { intent: "room_service", actions: [{ type: "hospitality.room_service.request", payload: { room: "B12", items: "towels" } }] }
+  → context_summary: "Guest in B12 requested towels, type not specified"
+
+Message 2: "medium ones please"
+  → Agent receives: context_summary + last_agent_output
+  → Agent output: { intent: "room_service", actions: [{ type: "hospitality.room_service.request", payload: { room: "B12", items: "medium towels" } }] }
+  → context_summary: "Guest in B12 requested medium towels, fulfilled"
+```
+
+Without context, message 2 would be classified as unclear or misinterpreted. With context, the agent knows the guest is specifying towel size for room B12.
+
+## Interaction with Human Takeover
+
+When a [human takeover](/guides/human-takeover) pause is active, the agent doesn't run at all — so no context is generated during the pause. When the pause expires and the agent resumes, it picks up context from the last run before the pause (if still within TTL).
+
+## Best practices
+
+- **Keep the default TTL (60 min)** for most use cases. It covers natural conversation gaps without carrying stale context.
+- **Increase to 120-240 min** for async workflows where customers may reply hours later (e.g., B2B support).
+- **Set to 0** for agents that handle fully independent requests (e.g., a pure classification agent with no follow-up expected).
+- The agent automatically generates `context_summary` — no prompt engineering needed. It's built into the default tool schema.

@@ -58,6 +58,7 @@
             "pages": [
               "guides/allowed-actions",
               "guides/structured-fields",
+              "guides/conversation-context",
               "guides/human-takeover"
             ]
           }
