@@ -42,10 +42,7 @@ agent = client.agents.create(
   ]
 )
 
-agent.payload_schema              # => PayloadSchema
-agent.payload_schema.fields       # => [Field, Field, ...]
-agent.payload_schema.field_names  # => [:room_number, :description, :due_at, :priority]
-agent.payload_schema.required     # => [:room_number, :description]
+agent.payload_schema  # => [{ "name" => "room_number", "field_type" => "text", "required" => true }, ...]
 ```
 
 Available field types: `text`, `number`, `boolean`, `date`, `time`, `datetime`. Max 10 fields.
@@ -91,32 +88,9 @@ end
   Without `allowed_actions`, the AI invents action types freely — useful for prototyping but unpredictable in production. Add constraints once you know your action types.
 </Tip>
 
-### Validating run payloads
-
-Use `payload_schema.check(payload)` to validate action output against the schema:
-
-```ruby
-run = agent.run(input: { last_message: "Clean room 204 tomorrow" })
-
-run.actions.each do |action|
-  result = agent.payload_schema.check(action["payload"])
-
-  result.valid?    # => false (description missing)
-  result.missing   # => [:description]
-  result.present   # => [:room_number, :due_at]
-  result.to_h      # => { room_number: "204", description: nil, due_at: "2026-03-03T00:00:00", priority: nil }
-
-  if result.valid?
-    Task.create!(result.to_h)
-  else
-    notify_human("Missing fields: #{result.missing.join(', ')}")
-  end
-end
-```
-
 <Note>
   `required` instructs the AI to always fill the field — it does not guarantee a value.
-  Always validate on your end with `check`.
+  Always validate on your end before processing actions.
 </Note>
 
 ## Retrieve an agent
@@ -139,44 +113,33 @@ agent = client.agents.update("agt_01hx...", name: "Updated Concierge")
 client.agents.delete("agt_01hx...")  # => true
 ```
 
-## Run an agent (sync)
+## Run an agent
 
-Creates a run and **polls until completed**. Blocks the current thread.
-
-```ruby
-run = agent.run(input: { last_message: "Clean room 204 tomorrow at 8" })
-
-run.status     # => "completed"
-run.intent     # => "task_extraction"
-run.confidence # => 0.95
-run.actions    # => [{ "type" => "create_task", "room" => "204", ... }]
-```
-
-You can tune the polling behavior:
+Creates a run and **returns immediately**. The run is processed asynchronously — poll with `refresh` or listen via webhook.
 
 ```ruby
-run = agent.run(
-  input: { last_message: "..." },
-  timeout: 60,   # seconds before raising (default: 30)
-  interval: 2    # seconds between polls (default: 1)
-)
-```
+# String input (auto-wrapped as last_message)
+run = agent.run(input: "Clean room 204 tomorrow at 8")
 
-## Run an agent (async)
+# Hash input (full control)
+run = agent.run(input: {
+  last_message: "Clean room 204 tomorrow at 8",
+  recent_messages: ["Hi, I have a request"]
+})
 
-Creates a run and **returns immediately** without waiting.
-
-```ruby
-run = agent.run_async(input: { last_message: "Clean room 204" })
 run.status  # => "pending"
+```
 
-# Later: poll manually
-run.reload
-run.completed?  # => false
+Poll for completion:
 
-# Or block until done
-run.wait(timeout: 30, interval: 1)
-run.completed?  # => true
+```ruby
+run.refresh
+run.completed?      # => true
+run.intent          # => "task_extraction"
+run.confidence      # => 0.95
+run.actions         # => [{ "type" => "hospitality.room_service.request", "payload" => { ... } }]
+run.suggested_reply # => "I'll arrange cleaning for room 204 tomorrow at 8am."
+run.context_summary # => "Guest requested room 204 cleaning for tomorrow 8am."
 ```
 
 ## List runs
@@ -186,15 +149,13 @@ run.completed?  # => true
 runs = agent.runs.list
 
 # From the client
-runs = client.agents.runs("agt_01hx...").list
-# or
-runs = client.agent_runs("agt_01hx...").list
+runs = client.runs("agt_01hx...").list
 ```
 
 ## Retrieve a run
 
 ```ruby
-run = client.agent_runs("agt_01hx...").retrieve("run_01hx...")
+run = client.runs("agt_01hx...").retrieve("run_01hx...")
 ```
 
 ## Dispatch actions with a registry
@@ -227,39 +188,41 @@ See [Registries](/sdks/ruby/registries) for the full guide.
 
 | Attribute | Type | Description |
 |-----------|------|-------------|
-| `id` | String | Agent ID |
+| `id` | String | Agent ID (`agt_...`) |
 | `name` | String | Agent name |
-| `system_prompt` | String | System prompt for the agent |
-| `model` | String | Model used |
-| `status` | String | `active`, `inactive` |
+| `description` | String | Agent description |
+| `model` | String | Model used (`gpt-4o-mini`) |
+| `temperature` | Float | LLM temperature |
+| `max_tokens` | Integer | Max output tokens |
+| `active` | Boolean | Whether agent is active |
+| `auto_run_inbound` | Boolean | Auto-process inbound messages |
+| `debounce_seconds` | Integer | Batch window for rapid messages |
+| `context_ttl_minutes` | Integer | Conversation context TTL (default 60) |
 | `business_account_id` | String | Linked business account |
-| `auto_run` | Boolean | Whether auto-run is enabled |
 | `allowed_actions` | Array | Allowed action types (empty = free-form) |
-| `payload_schema` | PayloadSchema | Structured fields with `check(payload)`, `required`, `field_names` |
+| `payload_schema` | Array | Structured field definitions |
 | `active?` | Boolean | Whether agent is active |
-| `auto_run?` | Boolean | Whether auto-run is enabled |
 
 ## AgentRun attributes
 
 | Attribute | Type | Description |
 |-----------|------|-------------|
-| `id` | String | Run ID |
+| `id` | String | Run ID (`run_...`) |
 | `agent_id` | String | Parent agent ID |
 | `status` | String | `pending`, `running`, `completed`, `failed` |
-| `triggered_by` | String | Trigger source: `sdk`, `api`, `auto`, `auto_inbound` |
-| `input` | Hash | Input data sent to the agent |
-| `output` | Hash | Agent output (intent, confidence, actions) |
-| `error` | String | Error message if failed |
-| `model_used` | String | LLM model used for this run |
-| `input_tokens` | Integer | Tokens consumed by the input |
-| `output_tokens` | Integer | Tokens generated in the output |
-| `latency_ms` | Integer | LLM response latency in milliseconds |
-| `duration_ms` | Integer | Total run duration in milliseconds |
+| `triggered_by` | String | `api`, `auto_inbound` |
+| `output` | Hash | Full agent output |
+| `error_message` | String | Error message if failed |
+| `model_used` | String | LLM model used |
+| `input_tokens` | Integer | Tokens consumed |
+| `output_tokens` | Integer | Tokens generated |
+| `latency_ms` | Integer | LLM response latency |
+| `duration_ms` | Integer | Total run duration |
 | `intent` | String | Shortcut for `output["intent"]` |
 | `confidence` | Float | Shortcut for `output["confidence"]` |
 | `actions` | Array | Shortcut for `output["actions"]` |
+| `suggested_reply` | String | Suggested reply in customer's language |
+| `context_summary` | String | Conversation state for continuity |
 | `pending?` | Boolean | Status is pending |
-| `running?` | Boolean | Status is running |
 | `completed?` | Boolean | Status is completed |
 | `failed?` | Boolean | Status is failed |
-| `finished?` | Boolean | Completed or failed |

@@ -35,24 +35,30 @@ client = WhatsrbCloud::Client.new(api_key: "wrb_live_xxx")
 ## Quick example
 
 ```ruby
-# List your business accounts
-accounts = client.business_accounts.list
-account  = accounts.data.first
-
-# Send a text message
-account.send_text(to: "+33612345678", text: "Hello!")
-
-# Send a template
-account.send_template(
-  to: "+33612345678",
-  template_name: "order_confirmation",
-  template_language: "en_US"
+# Create an agent
+agent = client.agents.create(
+  name: "Support Agent",
+  system_prompt: "Handle customer support requests.",
+  allowed_actions: ["support.refund.process", "support.ticket.create"]
 )
+
+# Run it
+run = agent.run(input: "I want a refund for order ORD-1234")
+run.refresh  # poll for completion
+
+run.actions  # => [{ "type" => "support.refund.process", "payload" => { "order_id" => "ORD-1234" } }]
+
+# Send a message via Business API
+account = client.business_accounts.list.data.first
+account.send_text(to: "+33612345678", text: run.suggested_reply)
 ```
 
 ## Resources
 
 <CardGroup cols={2}>
+  <Card title="Agents" icon="bot" href="/sdks/ruby/agents">
+    Create AI agents, run them against messages, and handle structured actions.
+  </Card>
   <Card title="Business Accounts" icon="building-2" href="/sdks/ruby/business-accounts">
     Connect and manage WhatsApp Business accounts.
   </Card>
