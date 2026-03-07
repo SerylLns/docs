@@ -1,0 +1,125 @@
+---
+title: Structured Fields
+description: Define typed fields the AI must fill in every action payload.
+---
+
+## The problem
+
+By default, an agent's action payload is **free-form** — the AI decides what fields to include:
+
+```json
+{
+  "actions": [
+    { "type": "support.refund.process", "payload": { "order": "1234", "amount": "49.90" } }
+  ]
+}
+```
+
+This is fine for prototyping, but in production you need **predictable, typed payloads** your backend can parse without guessing. Is `amount` a string or a number? Is `order_id` always present?
+
+## The solution
+
+**Structured fields** (`payload_schema`) let you declare the exact fields the AI must extract, with types and required constraints. The schema is injected into the LLM's function calling definition — the model is **natively constrained** to produce these fields.
+
+```ruby
+agent = client.agents.create(
+  name: "Support Agent",
+  system_prompt: "Handle customer support requests.",
+  payload_schema: [
+    { name: "order_id", field_type: "text", required: true },
+    { name: "reason", field_type: "text", required: true },
+    { name: "amount", field_type: "number", required: false },
+    { name: "refund_date", field_type: "date", required: false }
+  ]
+)
+```
+
+Now every run produces a predictable payload:
+
+```json
+{
+  "actions": [
+    {
+      "type": "support.refund.process",
+      "payload": {
+        "order_id": "1234",
+        "reason": "Product was defective",
+        "amount": 49.90,
+        "refund_date": "2026-03-10"
+      }
+    }
+  ]
+}
+```
+
+## Field types
+
+| Type | Description | Example value |
+|------|-------------|---------------|
+| `text` | Free-form string | `"Product was defective"` |
+| `number` | Integer or decimal | `49.90` |
+| `boolean` | True/false | `true` |
+| `date` | ISO 8601 date | `"2026-03-10"` |
+| `time` | Time of day | `"14:30"` |
+| `datetime` | ISO 8601 datetime | `"2026-03-10T14:30:00Z"` |
+
+## Required vs optional
+
+- **Required fields** (`required: true`) — the AI will always include them. If the information isn't in the message, the AI will use its best judgment (e.g. `"unknown"` for text).
+- **Optional fields** (`required: false`, default) — the AI includes them only when the information is clearly present.
+
+## Limits
+
+- Maximum **10 fields** per agent
+- Field names must be `snake_case` (lowercase letters, digits, underscores, starting with a letter)
+
+## Combining with allowed actions
+
+Structured fields work best with [allowed action types](/guides/allowed-actions). Together, they give you **fully predictable agent output**:
+
+- `allowed_actions` → constrains the action `type`
+- `payload_schema` → constrains the action `payload`
+
+```ruby
+agent = client.agents.create(
+  name: "Hotel Concierge",
+  system_prompt: "You are a hotel concierge handling guest requests.",
+  allowed_actions: [
+    "hotel.booking.create",
+    "hotel.room_service.order",
+    "hotel.maintenance.report"
+  ],
+  payload_schema: [
+    { name: "room_number", field_type: "text", required: true },
+    { name: "guest_name", field_type: "text", required: true },
+    { name: "details", field_type: "text", required: true },
+    { name: "scheduled_at", field_type: "datetime", required: false }
+  ]
+)
+```
+
+Your backend can now safely parse every agent run without any guesswork.
+
+## API
+
+Set `payload_schema` when creating or updating an agent:
+
+```bash
+curl -X POST https://whatsrb.com/api/v1/agents \
+  -H "Authorization: Bearer wrb_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent": {
+      "name": "Support Agent",
+      "system_prompt": "Handle support requests.",
+      "payload_schema": [
+        { "name": "order_id", "field_type": "text", "required": true },
+        { "name": "reason", "field_type": "text", "required": true }
+      ]
+    }
+  }'
+```
+
+<Tip>
+  Start without `payload_schema` to see what the AI naturally extracts, then lock it down once you know which fields matter to your workflow.
+</Tip>

@@ -40,19 +40,25 @@
             "group": "Getting Started",
             "pages": [
               "index",
-              "guides/quickstart"
+              "guides/quickstart",
+              "guides/authentication"
             ]
           },
           {
             "group": "Core Concepts",
             "pages": [
-              "guides/authentication",
               "guides/webhooks",
               "guides/templates",
-              "guides/allowed-actions",
-              "guides/human-takeover",
               "guides/meta-webhook-setup",
               "guides/error-handling"
+            ]
+          },
+          {
+            "group": "Agent & Workflows",
+            "pages": [
+              "guides/allowed-actions",
+              "guides/structured-fields",
+              "guides/human-takeover"
             ]
           }
         ]
