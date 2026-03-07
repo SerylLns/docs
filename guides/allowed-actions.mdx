@@ -95,8 +95,7 @@ agent = client.agents.create(
   system_prompt: "You are a customer support agent for an e-commerce store.",
   allowed_actions: [
     "support.refund.process",
-    "support.ticket.create",
-    "support.noop.skip"
+    "support.ticket.create"
   ],
   payload_schema: [
     { name: "order_id", field_type: "text", required: true },
@@ -127,8 +126,6 @@ run.actions.each do |action|
     )
   when "support.ticket.create"
     Tickets::Create.call(action["payload"])
-  when "support.noop.skip"
-    # Message not relevant — do nothing
   end
 end
 ```
@@ -139,8 +136,6 @@ end
 registry = WhatsrbCloud::ActionRegistry.new
 registry.register("support.refund.process") { |a| Refunds::Process.call(a) }
 registry.register("support.ticket.create") { |a| Tickets::Create.call(a) }
-registry.register("support.noop.skip")     { |_| nil }
-
 run.dispatch(registry)
 ```
 
@@ -165,6 +160,17 @@ curl -X POST https://whatsrb.com/api/v1/agents \
 ```
 
 The response includes `allowed_actions` in the agent object. The webhook payload (`agent_run.completed`) is unchanged — `output.actions[].type` now contains guaranteed values.
+
+## System actions
+
+Two action types are **automatically available** to all agents — you don't need to include them in `allowed_actions`:
+
+| Action | Purpose |
+|--------|---------|
+| `system.noop.skip` | Message not relevant to the agent's scope |
+| `system.conversation.pause` | Agent requests [human takeover](/guides/human-takeover) |
+
+System actions are internal — they are **never included in webhook payloads**. Your backend only receives your domain-specific actions.
 
 <Tip>
   Start with free-form, observe which action types the AI produces, then lock them down with `allowed_actions` once you're confident in your list.

@@ -61,7 +61,7 @@ Log in to the [WhatsRB Dashboard](https://whatsrb.com/dashboard) and navigate to
           "allowed_actions": [
             "support.refund.process",
             "support.ticket.create",
-            "support.noop.skip"
+            "support.order.status"
           ],
           "payload_schema": [
             { "name": "order_id", "field_type": "text", "required": true },
@@ -82,7 +82,7 @@ Log in to the [WhatsRB Dashboard](https://whatsrb.com/dashboard) and navigate to
       allowed_actions: [
         "support.refund.process",
         "support.ticket.create",
-        "support.noop.skip"
+        "support.order.status"
       ],
       payload_schema: [
         { name: "order_id", field_type: "text", required: true },
@@ -150,8 +150,8 @@ when "support.refund.process"
   )
 when "support.ticket.create"
   Tickets::Create.call(action["payload"])
-when "support.noop.skip"
-  # Not relevant — do nothing
+when "support.order.status"
+  Orders::CheckStatus.call(action["payload"])
 end
 ```
 

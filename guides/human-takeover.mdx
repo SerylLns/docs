@@ -49,23 +49,23 @@ Only messages with `triggered_by: "api"` trigger this behavior. Auto-replies fro
 
 ### Via agent proposal
 
-An agent can propose a human takeover by including a `conversation.pause` action in its output:
+An agent can propose a human takeover by including a `system.conversation.pause` action in its output:
 
 ```json
 {
   "actions": [
     {
-      "type": "conversation.pause",
+      "type": "system.conversation.pause",
       "payload": { "reason": "Customer is upset, needs human support" }
     }
   ]
 }
 ```
 
-WhatsRB intercepts this action, creates the pause, and **removes it from the webhook payload** — your backend never sees it. It's an internal action.
+WhatsRB intercepts this action, creates the pause, and **removes it from the webhook payload** — your backend never sees it. It's a system action.
 
 <Tip>
-  `conversation.pause` doesn't need to be in the agent's `allowed_actions` list. It's always available as an internal action type.
+  `system.conversation.pause` and `system.noop.skip` are automatically available to all agents — they don't need to be in `allowed_actions`. All `system.*` actions are internal and never appear in webhooks.
 </Tip>
 
 ## Checking pause status
