@@ -31,7 +31,7 @@ tags:
   - name: Agents
     description: AI agents for automated message analysis and action extraction.
   - name: Agent Runs
-    description: Agent execution results with structured output.
+    description: Agent run results with structured output.
   - name: Agent Templates
     description: Pre-built agent configurations for one-click creation.
   - name: Usage

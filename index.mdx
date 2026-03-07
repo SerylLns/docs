@@ -54,7 +54,7 @@ You define agents with a system prompt and constraints. WhatsRB handles the rest
 | **Structured Fields** | Typed payload schema (text, number, date, boolean) — predictable extraction |
 | **Conversation Context** | Agents remember previous exchanges per phone number (configurable TTL) |
 | **Human Takeover** | Pause the AI per-conversation when a human needs to respond |
-| **Inbound Pipeline** | Debounce → spam filter → routing → agent execution — 2 LLM calls, ~$0.0004/message |
+| **Inbound Pipeline** | Debounce → spam filter → routing → agent run — 2 LLM calls, ~$0.0004/message |
 | **Webhooks** | HMAC-signed delivery with retry for every event (runs, messages, statuses) |
 | **Templates** | Create, version, and send WhatsApp-approved message templates |
 
