@@ -1,0 +1,137 @@
+---
+title: "Agents Overview"
+description: "AI agents that classify, extract, and route WhatsApp messages into structured actions your backend can execute."
+---
+
+## What is an agent?
+
+An agent is an LLM-powered processor that takes an inbound WhatsApp message and returns **structured actions** — predictable JSON your backend can parse and execute. No free-text, no guessing.
+
+```
+Customer: "I need towels for room B12"
+    → Agent output:
+      { intent: "room_service", actions: [{ type: "hospitality.room_service.request", payload: { room: "B12", items: "towels" } }] }
+```
+
+Agents are **domain-specific** — one agent handles hotel requests, another handles customer support, another handles logistics. WhatsRB routes each message to the right agent automatically.
+
+## Inbound message flow
+
+Every inbound message goes through this pipeline:
+
+```
+Message received (WhatsApp)
+  → Debounce (batch fast messages, 10s window)
+  → PreFilterRules (regex, spam — no LLM, free)
+  → Human Takeover check (skip if paused)
+  → InboundRouter (1 LLM call → classify + route)
+  → InboundFilter (per-agent rules)
+  → AgentRunner (1 LLM call → structured output)
+  → Context saved (context_summary for next message)
+  → WebhookDispatcher (agent_run.completed → your backend)
+```
+
+**2 LLM calls** per message. Cost: ~$0.0004 with gpt-4o-mini.
+
+<Card title="Interactive Flow Diagram" icon="diagram-project" href="https://whatsrb.com/flows/inbound-flow.html">
+  See the full inbound pipeline with conversation context loop, human takeover check, and early exit points.
+</Card>
+
+<Note>
+PreFilterRules catches spam, greetings, and irrelevant messages **before** any LLM call — saving tokens on messages that don't need AI processing.
+</Note>
+
+## Configuring an agent
+
+```ruby
+agent = client.agents.create(
+  name: "Hotel Concierge",
+  system_prompt: "You handle hotel guest requests: bookings, room service, and maintenance.",
+  model: "gpt-4o-mini",
+  temperature: 0.3,
+  auto_run_inbound: true,          # process inbound messages automatically
+  debounce_seconds: 10,            # batch fast messages
+  context_ttl_minutes: 60,         # remember conversation for 1 hour
+  allowed_actions: [               # constrain output types
+    "hospitality.booking.modify",
+    "hospitality.room_service.request",
+    "hospitality.maintenance.report",
+    "hospitality.noop.skip"
+  ],
+  payload_schema: [                # constrain output fields
+    { name: "room", field_type: "text", required: true },
+    { name: "guest_name", field_type: "text", required: false },
+    { name: "details", field_type: "text", required: true }
+  ]
+)
+```
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Allowed Actions" icon="list-check" href="/guides/allowed-actions">
+    Constrain which action types the agent can return. Schema-level enum guarantee — the LLM cannot output a type outside your list.
+  </Card>
+  <Card title="Structured Fields" icon="table" href="/guides/structured-fields">
+    Define typed fields (text, number, date, boolean) the AI must fill in every action payload. Predictable, parseable output.
+  </Card>
+  <Card title="Conversation Context" icon="messages" href="/guides/conversation-context">
+    Agents remember previous exchanges for the same phone number. Follow-up messages like "medium ones" are understood in context.
+  </Card>
+  <Card title="Human Takeover" icon="hand" href="/guides/human-takeover">
+    Pause the agent per-conversation when a human needs to respond. Auto-expires, auto-extends on outbound messages.
+  </Card>
+</CardGroup>
+
+## Output structure
+
+Every agent run produces a standardized output via the `propose_actions` tool:
+
+```json
+{
+  "intent": "room_service",
+  "confidence": 0.95,
+  "actions": [
+    {
+      "type": "hospitality.room_service.request",
+      "payload": { "room": "B12", "items": "extra towels" }
+    }
+  ],
+  "language": "en",
+  "suggested_reply": "I'll have extra towels sent to room B12 right away!",
+  "analysis_summary": "Guest requested extra towels for room B12",
+  "context_summary": "Guest in B12 requested towels, fulfilled"
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `intent` | Detected customer intent |
+| `confidence` | Score between 0 and 1 |
+| `actions` | Array of structured actions with `type` and `payload` |
+| `language` | ISO 639-1 code of the customer's message |
+| `suggested_reply` | Optional reply in the customer's language |
+| `analysis_summary` | Short explanation of the reasoning |
+| `context_summary` | One-liner for conversation continuity (used by next run) |
+
+## Webhook delivery
+
+When an agent run completes, WhatsRB sends an `agent_run.completed` webhook to your endpoint:
+
+```json
+{
+  "event": "agent_run.completed",
+  "data": {
+    "run_id": "run_abc123",
+    "agent_id": "agt_def456",
+    "status": "completed",
+    "from": "33612345678",
+    "output": { "...structured output above..." },
+    "tokens": { "input": 850, "output": 120 },
+    "latency_ms": 420,
+    "duration_ms": 450
+  }
+}
+```
+
+Your backend handles the actions — WhatsRB stays decoupled from your business logic.
