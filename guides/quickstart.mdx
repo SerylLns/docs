@@ -29,6 +29,19 @@ Log in to the [WhatsRB Dashboard](https://whatsrb.com/dashboard) and navigate to
       }'
     ```
   </Tab>
+  <Tab title="Python">
+    ```python
+    import whatsrb_cloud
+
+    whatsrb_cloud.configure(api_key="wrb_live_xxx")
+    client = whatsrb_cloud.client()
+
+    client.webhooks.create(
+        url="https://your-webhook-url.com/whatsrb",
+        events=["agent_run.completed", "agent_run.failed"]
+    )
+    ```
+  </Tab>
   <Tab title="Ruby">
     ```ruby
     require "whatsrb_cloud"
@@ -40,6 +53,18 @@ Log in to the [WhatsRB Dashboard](https://whatsrb.com/dashboard) and navigate to
       url: "https://your-webhook-url.com/whatsrb",
       events: ["agent_run.completed", "agent_run.failed"]
     )
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import WhatsrbCloud from "@whatsrb/cloud";
+
+    const client = new WhatsrbCloud({ apiKey: "wrb_live_xxx" });
+
+    await client.webhooks.create({
+      url: "https://your-webhook-url.com/whatsrb",
+      events: ["agent_run.completed", "agent_run.failed"],
+    });
     ```
   </Tab>
 </Tabs>
@@ -72,6 +97,26 @@ Log in to the [WhatsRB Dashboard](https://whatsrb.com/dashboard) and navigate to
       }'
     ```
   </Tab>
+  <Tab title="Python">
+    ```python
+    agent = client.agents.create(
+        name="Support Agent",
+        business_account_id="YOUR_BA_ID",
+        system_prompt="You are a customer support agent for an e-commerce store. Classify requests and extract relevant fields.",
+        auto_run_inbound=True,
+        allowed_actions=[
+            "support.refund.process",
+            "support.ticket.create",
+            "support.order.status"
+        ],
+        payload_schema=[
+            {"name": "order_id", "field_type": "text", "required": True},
+            {"name": "reason", "field_type": "text", "required": True},
+            {"name": "amount", "field_type": "number", "required": False}
+        ]
+    )
+    ```
+  </Tab>
   <Tab title="Ruby">
     ```ruby
     agent = client.agents.create(
@@ -90,6 +135,27 @@ Log in to the [WhatsRB Dashboard](https://whatsrb.com/dashboard) and navigate to
         { name: "amount", field_type: "number", required: false }
       ]
     )
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    const agent = await client.agents.create({
+      name: "Support Agent",
+      businessAccountId: "YOUR_BA_ID",
+      systemPrompt:
+        "You are a customer support agent for an e-commerce store. Classify requests and extract relevant fields.",
+      autoRunInbound: true,
+      allowedActions: [
+        "support.refund.process",
+        "support.ticket.create",
+        "support.order.status",
+      ],
+      payloadSchema: [
+        { name: "order_id", fieldType: "text", required: true },
+        { name: "reason", fieldType: "text", required: true },
+        { name: "amount", fieldType: "number", required: false },
+      ],
+    });
     ```
   </Tab>
 </Tabs>
@@ -139,21 +205,65 @@ The `type` is guaranteed to be one of your `allowed_actions`. The `payload` fiel
 
 ## 6. Handle it in your backend
 
-```ruby
-# Your webhook handler
-case action["type"]
-when "support.refund.process"
-  Refunds::Process.call(
-    order_id: action.dig("payload", "order_id"),
-    amount: action.dig("payload", "amount"),
-    reason: action.dig("payload", "reason")
-  )
-when "support.ticket.create"
-  Tickets::Create.call(action["payload"])
-when "support.order.status"
-  Orders::CheckStatus.call(action["payload"])
-end
-```
+<Tabs>
+  <Tab title="Python">
+    ```python
+    # Your webhook handler
+    action_type = action["type"]
+    payload = action["payload"]
+
+    if action_type == "support.refund.process":
+        process_refund(
+            order_id=payload["order_id"],
+            amount=payload["amount"],
+            reason=payload["reason"]
+        )
+    elif action_type == "support.ticket.create":
+        create_ticket(payload)
+    elif action_type == "support.order.status":
+        check_order_status(payload)
+    ```
+  </Tab>
+  <Tab title="Ruby">
+    ```ruby
+    # Your webhook handler
+    case action["type"]
+    when "support.refund.process"
+      Refunds::Process.call(
+        order_id: action.dig("payload", "order_id"),
+        amount: action.dig("payload", "amount"),
+        reason: action.dig("payload", "reason")
+      )
+    when "support.ticket.create"
+      Tickets::Create.call(action["payload"])
+    when "support.order.status"
+      Orders::CheckStatus.call(action["payload"])
+    end
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    // Your webhook handler
+    const { type, payload } = action;
+
+    switch (type) {
+      case "support.refund.process":
+        await processRefund({
+          orderId: payload.order_id,
+          amount: payload.amount,
+          reason: payload.reason,
+        });
+        break;
+      case "support.ticket.create":
+        await createTicket(payload);
+        break;
+      case "support.order.status":
+        await checkOrderStatus(payload);
+        break;
+    }
+    ```
+  </Tab>
+</Tabs>
 
 ## Next steps
 
