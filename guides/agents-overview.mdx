@@ -47,15 +47,12 @@ PreFilterRules catches spam, greetings, and irrelevant messages **before** any L
 agent = client.agents.create(
   name: "Hotel Concierge",
   system_prompt: "You handle hotel guest requests: bookings, room service, and maintenance.",
-  model: "gpt-4o-mini",
-  temperature: 0.3,
   auto_run_inbound: true,          # process inbound messages automatically
   debounce_seconds: 10,            # batch fast messages
   context_ttl_minutes: 60,         # remember conversation for 1 hour
   allowed_actions: [               # constrain output types
     "hospitality.booking.modify",
     "hospitality.room_service.request",
-    "hospitality.maintenance.report",
     "hospitality.maintenance.report"
   ],
   payload_schema: [                # constrain output fields

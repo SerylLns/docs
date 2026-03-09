@@ -980,9 +980,6 @@ paths:
                     name: { type: string }
                     description: { type: string }
                     system_prompt: { type: string }
-                    model: { type: string, default: gpt-4o-mini }
-                    temperature: { type: number, minimum: 0, maximum: 2, default: 0.3 }
-                    max_tokens: { type: integer, minimum: 1, maximum: 2048, default: 1024 }
                     active: { type: boolean, default: true }
                     auto_run_inbound: { type: boolean, default: false }
                     debounce_seconds: { type: integer, minimum: 1, maximum: 60, default: 10 }
@@ -1043,9 +1040,6 @@ paths:
                     name: { type: string }
                     description: { type: string }
                     system_prompt: { type: string }
-                    model: { type: string }
-                    temperature: { type: number }
-                    max_tokens: { type: integer }
                     active: { type: boolean }
                     auto_run_inbound: { type: boolean }
                     debounce_seconds: { type: integer }
