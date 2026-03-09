@@ -1,0 +1,64 @@
+---
+title: Configuration
+description: Configure the WhatsRB Cloud Python SDK.
+---
+
+## Global configuration
+
+```python
+import whatsrb_cloud
+
+whatsrb_cloud.configure(
+    api_key="wrb_live_xxx",
+    base_url="https://whatsrb.com",  # default
+    timeout=30,                       # seconds, default
+)
+```
+
+## Default client
+
+After configuring globally, access a shared client singleton:
+
+```python
+import whatsrb_cloud
+
+whatsrb_cloud.configure(api_key="wrb_live_xxx")
+
+# Uses the global configuration — no need to instantiate
+whatsrb_cloud.client().agents.list()
+whatsrb_cloud.client().webhooks.list()
+```
+
+The singleton is lazy-loaded and reset when you call `whatsrb_cloud.reset_configuration()`.
+
+## Per-client configuration
+
+```python
+from whatsrb_cloud import WhatsrbCloud
+
+client = WhatsrbCloud(
+    "wrb_live_xxx",
+    base_url="https://whatsrb.com",
+    timeout=30,
+)
+```
+
+Per-client options override the global configuration.
+
+## Django / FastAPI setup
+
+```python
+# settings.py or startup
+import whatsrb_cloud
+import os
+
+whatsrb_cloud.configure(api_key=os.environ["WHATSRB_API_KEY"])
+```
+
+## Available options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `api_key` | — | Your WhatsRB API key (required) |
+| `base_url` | `https://whatsrb.com` | API base URL |
+| `timeout` | `30` | Request timeout in seconds |

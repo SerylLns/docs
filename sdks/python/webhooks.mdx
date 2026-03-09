@@ -1,0 +1,151 @@
+---
+title: Webhooks
+description: Manage webhook endpoints and verify incoming signatures.
+---
+
+## List endpoints
+
+```python
+result = client.webhooks.list()
+result.data  # list of Webhook objects
+```
+
+## Create an endpoint
+
+```python
+webhook = client.webhooks.create(
+    url="https://yourapp.com/webhooks/whatsrb",
+    events=["message.received", "message.status", "message.failed"],
+)
+
+webhook.id        # 1
+webhook.url       # "https://yourapp.com/webhooks/whatsrb"
+webhook.events    # ["message.received", "message.status", "message.failed"]
+webhook.secret    # "whsec_xxx" — only present on create, store it now!
+webhook.is_active # True
+```
+
+Passing no `events` subscribes to all events.
+
+## Retrieve an endpoint
+
+```python
+webhook = client.webhooks.retrieve(1)
+```
+
+## Update an endpoint
+
+```python
+webhook = client.webhooks.update(1,
+    url="https://yourapp.com/new-path",
+    active=False,
+    events=["message.failed"],
+)
+```
+
+## Delete an endpoint
+
+```python
+client.webhooks.delete(1)  # True
+```
+
+## Verify incoming signatures
+
+Every webhook request includes `X-Webhook-Signature` and `X-Webhook-Event` headers. Verify the signature before processing.
+
+### Manual verification
+
+```python
+from whatsrb_cloud import WebhookSignature
+
+is_valid = WebhookSignature.verify(
+    payload=request_body,
+    secret="whsec_xxx",
+    signature=request.headers["X-Webhook-Signature"],
+    timestamp=request.headers.get("X-Webhook-Timestamp"),
+)
+```
+
+### FastAPI example
+
+```python
+from fastapi import FastAPI, Request, HTTPException
+from whatsrb_cloud import WebhookSignature, EventRegistry
+import os
+
+app = FastAPI()
+events = EventRegistry()
+
+@app.post("/webhooks/whatsrb")
+async def handle_webhook(request: Request):
+    body = await request.body()
+    signature = request.headers.get("X-Webhook-Signature", "")
+    timestamp = request.headers.get("X-Webhook-Timestamp")
+
+    if not WebhookSignature.verify(
+        payload=body.decode(),
+        secret=os.environ["WHATSRB_WEBHOOK_SECRET"],
+        signature=signature,
+        timestamp=timestamp,
+    ):
+        raise HTTPException(status_code=401)
+
+    payload = await request.json()
+    events.dispatch(payload)
+    return {"ok": True}
+```
+
+### Flask example
+
+```python
+from flask import Flask, request, abort
+from whatsrb_cloud import WebhookSignature
+import os
+
+app = Flask(__name__)
+
+@app.post("/webhooks/whatsrb")
+def handle_webhook():
+    if not WebhookSignature.verify(
+        payload=request.get_data(as_text=True),
+        secret=os.environ["WHATSRB_WEBHOOK_SECRET"],
+        signature=request.headers.get("X-Webhook-Signature", ""),
+        timestamp=request.headers.get("X-Webhook-Timestamp"),
+    ):
+        abort(401)
+
+    payload = request.get_json()
+    events.dispatch(payload)
+    return "", 200
+```
+
+The signature format is `sha256=<HMAC-SHA256(secret, raw_body)>`.
+
+<Info>
+  For routing events to handlers, see [Registries](/sdks/python/registries).
+</Info>
+
+## Webhook attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `id` | int | Endpoint ID |
+| `url` | str | Your HTTPS endpoint URL |
+| `events` | list | Subscribed event types |
+| `is_active` | bool | Whether endpoint is active |
+| `secret` | str | Signing secret (only on create) |
+
+## Supported events
+
+| Event | When |
+|-------|------|
+| `message.received` | Inbound message received |
+| `message.status` | Message status updated |
+| `message.failed` | Message failed to send |
+| `session.connected` | Session connected |
+| `session.disconnected` | Session disconnected |
+| `session.failed` | Session connection failed |
+| `quota.warning` | Approaching daily quota |
+| `quota.exceeded` | Daily quota exceeded |
+| `agent_run.completed` | Agent run finished successfully |
+| `agent_run.failed` | Agent run failed |

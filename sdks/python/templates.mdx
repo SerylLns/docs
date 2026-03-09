@@ -1,0 +1,116 @@
+---
+title: Templates
+description: Create, sync, and manage WhatsApp message templates.
+---
+
+Access templates through a `BusinessAccount` or directly via the client.
+
+```python
+account = client.business_accounts.list()[0]
+templates = account.templates()
+# or:
+templates = client.templates(account.id)
+```
+
+## List templates
+
+```python
+result = templates.list()
+result.data  # list of Template objects
+
+# Filter by status or category
+result = templates.list(status="approved")
+result = templates.list(status="approved", category="MARKETING")
+```
+
+Status values: `approved`, `pending`, `rejected`.
+
+## Find by name
+
+```python
+tpl = templates.find_by_name("order_confirmation")
+if tpl:
+    print(tpl.is_approved)  # True
+```
+
+## Retrieve a template
+
+```python
+tpl = templates.retrieve("tpl_01hx...")
+tpl.name      # "order_confirmation"
+tpl.status    # "approved"
+tpl.language  # "en_US"
+tpl.category  # "UTILITY"
+```
+
+## Create a template
+
+```python
+tpl = templates.create(
+    name="order_confirmation",
+    category="UTILITY",
+    language="en_US",
+    components=[
+        {
+            "type": "BODY",
+            "text": "Your order {{1}} has been confirmed.",
+        }
+    ],
+)
+tpl.status  # "pending"  (awaiting Meta approval)
+```
+
+## Sync from Meta
+
+Pulls the latest template statuses from Meta and updates your local records:
+
+```python
+result = templates.sync()
+result.data  # list of synced Template objects
+```
+
+## Clone a template
+
+```python
+clone = templates.clone("tpl_01hx...")
+clone.name  # "order_confirmation_copy"
+```
+
+## Send a test message
+
+```python
+msg = templates.send_test(
+    "tpl_01hx...",
+    to="+33699887766",
+    variables=["ORDER-123"],
+)
+msg.status  # "queued"
+```
+
+## Delete a template
+
+```python
+templates.delete("tpl_01hx...")  # True
+```
+
+## Template attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `id` | str | WhatsRB template ID |
+| `meta_template_id` | str | Meta template ID |
+| `name` | str | Template name |
+| `category` | str | `UTILITY`, `MARKETING`, `AUTHENTICATION` |
+| `status` | str | `approved`, `pending`, `rejected` |
+| `language` | str | Language code (e.g. `en_US`) |
+| `header_type` | str | `TEXT`, `IMAGE`, `VIDEO`, `DOCUMENT` |
+| `components` | list | Template components |
+| `rejection_reason` | str | Reason if rejected |
+
+## Status helpers
+
+```python
+tpl.is_approved  # True
+tpl.is_pending   # False
+tpl.is_rejected  # False
+```

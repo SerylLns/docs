@@ -116,6 +116,21 @@
               "sdks/typescript/webhooks",
               "sdks/typescript/registries"
             ]
+          },
+          {
+            "group": "Python",
+            "pages": [
+              "sdks/python/overview",
+              "sdks/python/installation",
+              "sdks/python/configuration",
+              "sdks/python/business-accounts",
+              "sdks/python/business-messages",
+              "sdks/python/templates",
+              "sdks/python/sessions",
+              "sdks/python/agents",
+              "sdks/python/webhooks",
+              "sdks/python/registries"
+            ]
           }
         ]
       }

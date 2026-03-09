@@ -1,0 +1,165 @@
+---
+title: Business Messages
+description: Send messages via the WhatsApp Business API.
+---
+
+Access messages through a `BusinessAccount` object or directly via the client.
+
+## Check the 24h conversation window
+
+Before sending a free-form message (text, image, video, etc.), check whether the conversation window is open. The window opens when the contact sends you an inbound message and expires 24 hours later.
+
+```python
+account = client.business_accounts.list()[0]
+
+# Simple check
+if account.window_open("+33699887766"):
+    account.send_text(to="+33699887766", text="Thanks for reaching out!")
+else:
+    # Window closed — send a template instead
+    account.send_template(to="+33699887766", template_name="follow_up", template_language="en_US")
+```
+
+Get detailed window info (last inbound timestamp, expiration):
+
+```python
+info = account.window("+33699887766")
+info["open"]             # True
+info["last_inbound_at"]  # "2026-03-06T10:00:00Z"
+info["expires_at"]       # "2026-03-07T10:00:00Z"
+```
+
+<Tip>
+  Outside the 24h window, Meta only allows **template messages**. Free-form messages (text, media) will be rejected. Always check the window before sending non-template messages.
+</Tip>
+
+## Send a text message
+
+```python
+account = client.business_accounts.list()[0]
+
+msg = account.send_text(to="+33699887766", text="Hello!")
+msg.id      # "msg_01hz..."
+msg.status  # "queued"
+```
+
+## Send a template message
+
+```python
+msg = account.send_template(
+    to="+33699887766",
+    template_name="order_confirmation",
+    template_language="en_US",
+)
+```
+
+## Send media messages
+
+Within the 24-hour conversation window, you can send images, videos, audio, and documents by URL:
+
+```python
+# Image
+account.send_image(to="+33699887766", url="https://example.com/photo.jpg")
+
+# Video
+account.send_video(to="+33699887766", url="https://example.com/clip.mp4")
+
+# Audio
+account.send_audio(to="+33699887766", url="https://example.com/voice.ogg")
+
+# Document
+account.send_document(to="+33699887766", url="https://example.com/invoice.pdf")
+```
+
+<Note>
+  Media URLs must be publicly accessible. Meta downloads the file once and delivers it natively in the recipient's WhatsApp chat. Supported formats: JPEG/PNG (image), MP4 (video), OGG/MP3 (audio), PDF/DOCX (document).
+</Note>
+
+<Warning>
+  **Meta file size limits:** Image: 5 MB — Video: 16 MB — Audio: 16 MB — Document: 100 MB. Files exceeding these limits will be rejected by Meta.
+</Warning>
+
+## Send interactive buttons
+
+Send a message with up to 3 reply buttons. The recipient taps a button and you receive the response via webhook.
+
+```python
+# With dict buttons (full control over IDs)
+account.send_buttons(
+    to="+33699887766",
+    body="Would you like to proceed?",
+    buttons=[
+        {"id": "confirm", "title": "Yes, confirm"},
+        {"id": "cancel", "title": "No, cancel"},
+    ],
+)
+
+# With string shortcuts (IDs auto-generated as btn_0, btn_1, ...)
+account.send_buttons(
+    to="+33699887766",
+    body="Rate your experience:",
+    buttons=["Great", "OK", "Poor"],
+)
+```
+
+<Warning>
+  **Limits:** Max 3 buttons per message. Button titles max 20 characters. Interactive messages require an open 24h conversation window (no template fallback).
+</Warning>
+
+## Using the messages resource directly
+
+```python
+messages = client.business_messages(account.id)
+
+msg = messages.create(
+    to="+33699887766",
+    message_type="text",
+    content="Hello!",
+)
+```
+
+## List messages
+
+```python
+result = account.messages().list()
+result.data  # list of Message objects
+result.meta  # {"total": 42}
+```
+
+Only returns the last 100 messages, ordered newest first.
+
+## Retrieve a message
+
+```python
+msg = account.messages().retrieve("msg_01hz...")
+msg.status        # "delivered"
+msg.delivered_at  # datetime(2026, 1, 1, 12, 0, 5)
+```
+
+## Message attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `id` | str | WhatsRB message ID |
+| `direction` | str | `outbound` |
+| `to` | str | Recipient phone number |
+| `message_type` | str | `text`, `template`, `image`, `video`, `audio`, `document`, `interactive` |
+| `content` | str | Message text |
+| `template_name` | str | Template name (if template) |
+| `template_language` | str | Template language (if template) |
+| `status` | str | `queued`, `sent`, `delivered`, `read`, `failed` |
+| `wamid` | str | WhatsApp message ID (set after delivery) |
+| `error_message` | str | Error detail (if failed) |
+| `sent_at` | datetime | When sent to Meta |
+| `delivered_at` | datetime | When delivered to recipient |
+| `read_at` | datetime | When read by recipient |
+
+## Status helpers
+
+```python
+msg.is_queued     # True
+msg.is_sent       # False
+msg.is_delivered  # False
+msg.is_read       # False
+msg.is_failed     # False
+```

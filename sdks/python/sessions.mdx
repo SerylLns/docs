@@ -1,0 +1,114 @@
+---
+title: Sessions
+description: Manage WhatsApp Web sessions (session-based channel).
+---
+
+<Warning>
+  **Session-based channel** — Sessions use WhatsApp Web under the hood. This is a separate channel from the official WhatsApp Business Platform (Meta API). The phone must stay connected, and this channel is subject to WhatsApp Web limitations. For production workloads, we recommend using [Business Accounts](/sdks/python/business-accounts) with the official Meta API.
+</Warning>
+
+## List sessions
+
+```python
+result = client.sessions.list()
+result.data  # list of Session objects
+result.meta  # {"total": 2}
+```
+
+## Create a session
+
+```python
+session = client.sessions.create(name="My Session")
+session.id       # "ses_01hx..."
+session.status   # "qr_pending"
+session.qr_code  # "data:image/png;base64,..."
+```
+
+## Scan QR and wait for connection
+
+```python
+session = client.sessions.create(name="Production")
+
+# Display QR to the user, poll until connected
+session.wait_for_qr(
+    timeout=60,
+    interval=2,
+    on_qr=lambda qr: print(f"Scan this QR: {qr}"),
+)
+
+session.is_connected   # True
+session.phone_number   # "+33612345678"
+```
+
+## Retrieve a session
+
+```python
+session = client.sessions.retrieve("ses_01hx...")
+session.status        # "connected"
+session.phone_number  # "+33612345678"
+```
+
+## Reload session state
+
+```python
+session.reload()
+session.refresh()  # alias
+```
+
+## Delete a session
+
+```python
+client.sessions.delete("ses_01hx...")  # True
+```
+
+## Send messages
+
+```python
+session = client.sessions.list()[0]
+
+# Text
+session.send_message(to="+33699887766", text="Hello!")
+
+# Image
+session.send_image(to="+33699887766", url="https://example.com/image.png")
+
+# Video
+session.send_video(to="+33699887766", url="https://example.com/video.mp4")
+
+# Audio
+session.send_audio(to="+33699887766", url="https://example.com/audio.ogg")
+
+# Document
+session.send_document(to="+33699887766", url="https://example.com/file.pdf")
+
+# Location
+session.send_location(to="+33699887766", latitude=48.8566, longitude=2.3522)
+
+# Contact
+session.send_contact(to="+33699887766", name="John Doe", phone="+33611223344")
+```
+
+## Access the messages resource
+
+```python
+messages = session.messages()
+# or:
+messages = client.messages(session.id)
+
+result = messages.list()
+msg = messages.retrieve("msg_01hz...")
+```
+
+## Session attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `id` | str | Session ID |
+| `name` | str | Session label |
+| `status` | str | `connecting`, `qr_pending`, `connected`, `disconnected` |
+| `phone_number` | str | Connected phone number |
+| `qr_code` | str | Base64 QR image (while `qr_pending`) |
+| `status_reason` | str | Reason for current status (e.g. `phone_offline`) |
+| `connected` | bool | Whether session is connected (boolean from API) |
+| `last_connected_at` | str | Last successful connection timestamp (ISO 8601) |
+| `is_connected` | bool | Whether session is active |

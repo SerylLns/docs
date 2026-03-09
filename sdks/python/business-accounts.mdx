@@ -1,0 +1,106 @@
+---
+title: Business Accounts
+description: Connect and manage WhatsApp Business accounts.
+---
+
+## List accounts
+
+```python
+result = client.business_accounts.list()
+
+result.data  # list of BusinessAccount objects
+result.meta  # {"total": 1, "plan_limit": 5}
+```
+
+## Retrieve an account
+
+```python
+account = client.business_accounts.retrieve("acc_01hx...")
+account.id              # "acc_01hx..."
+account.waba_id         # "123456789"
+account.business_name   # "Acme Corp"
+account.phone_number    # "+33612345678"
+account.display_name    # "Acme"
+account.status          # "active"
+account.quality_rating  # "GREEN"
+account.is_connected    # True
+```
+
+## Connect via embedded signup
+
+Generates a URL to redirect your user through the Meta embedded signup flow:
+
+```python
+request = client.business_accounts.connect()
+
+request.id          # "con_01hx..."
+request.url         # "https://whatsrb.com/connect/TOKEN"
+request.status      # "pending"
+request.expires_at  # "2026-01-01T12:05:00Z"
+
+# Poll until the user completes signup (up to 5 minutes)
+account = request.wait_for_account(timeout=300, interval=3)
+account.business_name  # "Acme Corp"
+```
+
+## Connect manually (direct credentials)
+
+<Warning>
+  Manual accounts can only **send** messages. To also **receive** incoming messages, you must configure your Meta app's webhook. See [Meta Webhook Setup](/guides/meta-webhook-setup).
+</Warning>
+
+```python
+account = client.business_accounts.connect_manual(
+    waba_id="123456789",
+    phone_number_id="987654321",
+    business_name="Acme Corp",
+    display_name="Acme",
+    phone_number="+33612345678",
+    meta_access_token="EAAxxxxxxx",
+)
+```
+
+## Delete an account
+
+```python
+client.business_accounts.delete("acc_01hx...")  # True
+```
+
+## Send messages from an account
+
+```python
+account = client.business_accounts.list()[0]
+
+# Text message
+account.send_text(to="+33699887766", text="Hello!")
+
+# Template message
+account.send_template(
+    to="+33699887766",
+    template_name="order_confirmation",
+    template_language="en_US",
+)
+
+# Media messages (within 24h conversation window)
+account.send_image(to="+33699887766", url="https://example.com/photo.jpg")
+account.send_video(to="+33699887766", url="https://example.com/clip.mp4")
+account.send_audio(to="+33699887766", url="https://example.com/voice.ogg")
+account.send_document(to="+33699887766", url="https://example.com/invoice.pdf")
+```
+
+## BusinessAccount attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `id` | str | WhatsRB account ID |
+| `waba_id` | str | WhatsApp Business Account ID |
+| `business_name` | str | Registered business name |
+| `display_name` | str | Display name on WhatsApp |
+| `phone_number` | str | Phone number in E.164 format |
+| `phone_number_id` | str | Meta phone number ID |
+| `status` | str | `active`, `disconnected`, etc. |
+| `quality_rating` | str | `GREEN`, `YELLOW`, `RED` |
+| `is_connected` | bool | Whether account is connected |
+| `meta_token_expires_at` | str | Meta access token expiration (ISO 8601) |
+| `window_open(phone)` | bool | Whether the 24h conversation window is open for this number |
+| `window(phone)` | dict | Full window info: `open`, `last_inbound_at`, `expires_at` |

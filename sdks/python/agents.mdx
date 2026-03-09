@@ -1,0 +1,227 @@
+---
+title: Agents
+description: Create AI agents and run them against conversations.
+---
+
+## List agents
+
+```python
+result = client.agents.list()
+
+for agent in result:  # ListResponse is iterable
+    print(agent.name)
+
+result.meta  # {"total": 3}
+```
+
+## Create an agent
+
+```python
+agent = client.agents.create(
+    name="Hotel Concierge",
+    system_prompt="You are a hotel operations agent...",
+    business_account_id="acc_01hx...",
+)
+
+agent.id    # "agt_01hx..."
+agent.name  # "Hotel Concierge"
+```
+
+### With structured fields
+
+Define `payload_schema` to enforce specific fields in the AI output payload:
+
+```python
+agent = client.agents.create(
+    name="Hotel Concierge",
+    system_prompt="Extract structured tasks from hotel guest messages.",
+    payload_schema=[
+        {"name": "room_number", "field_type": "text", "required": True},
+        {"name": "description", "field_type": "text", "required": True},
+        {"name": "due_at", "field_type": "datetime", "required": False},
+        {"name": "priority", "field_type": "text", "required": False},
+    ],
+)
+```
+
+Available field types: `text`, `number`, `boolean`, `date`, `time`, `datetime`. Max 10 fields.
+
+### With allowed action types
+
+By default, the AI can return any action type (free-form). Set `allowed_actions` to constrain it to a specific list — the AI **can only return values from this list**.
+
+```python
+agent = client.agents.create(
+    name="Support Agent",
+    system_prompt="Handle customer support requests.",
+    allowed_actions=[
+        "support.refund.process",
+        "support.ticket.create",
+        "support.escalation.request",
+    ],
+)
+```
+
+Format: `domain.resource.action` (snake_case, 3 segments). Max 10 action types.
+
+When a run completes, every action's `type` is guaranteed to be in this list:
+
+```python
+run = agent.run(input={"last_message": "I want a refund for order #1234"})
+
+for action in run.actions:
+    match action["type"]:
+        case "support.refund.process":
+            process_refund(action["payload"])
+        case "support.ticket.create":
+            create_ticket(action["payload"])
+        case "support.escalation.request":
+            notify_escalation(action["payload"])
+```
+
+<Tip>
+  Without `allowed_actions`, the AI invents action types freely — useful for prototyping but unpredictable in production. Add constraints once you know your action types.
+</Tip>
+
+<Note>
+  `required` instructs the AI to always fill the field — it does not guarantee a value.
+  Always validate on your end before processing actions.
+</Note>
+
+## Retrieve an agent
+
+```python
+agent = client.agents.retrieve("agt_01hx...")
+agent.is_active    # True
+agent.is_auto_run  # False
+```
+
+## Update an agent
+
+```python
+agent = client.agents.update("agt_01hx...", name="Updated Concierge")
+```
+
+## Delete an agent
+
+```python
+client.agents.delete("agt_01hx...")  # True
+```
+
+## Run an agent
+
+Creates a run and polls until complete (blocks). The run is processed asynchronously on the server.
+
+```python
+# String input (auto-wrapped as last_message)
+run = agent.run(input="Clean room 204 tomorrow at 8")
+
+# Dict input (full control)
+run = agent.run(input={
+    "last_message": "Clean room 204 tomorrow at 8",
+    "recent_messages": ["Hi, I have a request"],
+})
+
+run.status           # "completed"
+run.intent           # "task_extraction"
+run.confidence       # 0.95
+run.actions          # [{"type": "hospitality.room_service.request", "payload": {...}}]
+run.suggested_reply  # "I'll arrange cleaning for room 204 tomorrow at 8am."
+run.context_summary  # "Guest requested room 204 cleaning for tomorrow 8am."
+```
+
+### Async (non-blocking)
+
+```python
+run = agent.run_async(input="Clean room 204 tomorrow at 8")
+run.status  # "pending"
+
+# ... do other things ...
+
+run.wait(timeout=30)  # blocks until completed
+```
+
+## List runs
+
+```python
+# From an agent object
+runs = agent.runs().list()
+
+# From the client
+runs = client.agent_runs("agt_01hx...").list()
+```
+
+## Retrieve a run
+
+```python
+run = client.agent_runs("agt_01hx...").retrieve("run_01hx...")
+```
+
+## Dispatch actions with a registry
+
+Use an `ActionRegistry` to route agent actions to your handlers:
+
+```python
+from whatsrb_cloud import ActionRegistry
+
+registry = ActionRegistry()
+
+registry.register("create_task", lambda payload: create_task(
+    description=payload["description"],
+    room_number=payload["room_number"],
+    priority=payload["priority"],
+))
+
+registry.register("create_ticket", lambda payload: create_ticket(
+    message=payload["message"],
+))
+
+# Dispatch all actions from a completed run
+run = agent.run(input={"last_message": "Fix the AC in room 107"})
+run.dispatch(registry)
+```
+
+See [Registries](/sdks/python/registries) for the full guide.
+
+## Agent attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `id` | str | Agent ID (`agt_...`) |
+| `name` | str | Agent name |
+| `description` | str | Agent description |
+| `model` | str | Model used (`gpt-4o-mini`) |
+| `temperature` | float | LLM temperature |
+| `max_tokens` | int | Max output tokens |
+| `active` | bool | Whether agent is active |
+| `auto_run_inbound` | bool | Auto-process inbound messages |
+| `debounce_seconds` | int | Batch window for rapid messages |
+| `context_ttl_minutes` | int | Conversation context TTL (default 60) |
+| `business_account_id` | str | Linked business account |
+| `allowed_actions` | list | Allowed action types (empty = free-form) |
+| `payload_schema` | list | Structured field definitions |
+| `is_active` | bool | Whether agent is active |
+
+## AgentRun attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `id` | str | Run ID (`run_...`) |
+| `agent_id` | str | Parent agent ID |
+| `status` | str | `pending`, `running`, `completed`, `failed` |
+| `triggered_by` | str | `api`, `auto_inbound` |
+| `output` | dict | Full agent output |
+| `error` | str | Error message if failed |
+| `model_used` | str | LLM model used |
+| `input_tokens` | int | Tokens consumed |
+| `output_tokens` | int | Tokens generated |
+| `latency_ms` | int | LLM response latency |
+| `duration_ms` | int | Total run duration |
+| `intent` | str | Shortcut for `output["intent"]` |
+| `confidence` | float | Shortcut for `output["confidence"]` |
+| `actions` | list | Shortcut for `output["actions"]` |
+| `suggested_reply` | str | Suggested reply in customer's language |
+| `context_summary` | str | Conversation state for continuity |
+| `is_pending` | bool | Status is pending |
+| `is_completed` | bool | Status is completed |
+| `is_failed` | bool | Status is failed |

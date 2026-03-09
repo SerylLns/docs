@@ -1,0 +1,138 @@
+---
+title: Registries
+description: Route webhook events and agent actions to your handlers.
+---
+
+The SDK provides two registry classes to replace `if/elif` chains with a clean, extensible dispatch pattern.
+
+## ActionRegistry
+
+Routes agent run actions to handler functions based on action type.
+
+### Setup
+
+```python
+from whatsrb_cloud import ActionRegistry
+
+registry = ActionRegistry()
+
+registry.register("support.ticket.create", lambda payload: create_ticket(payload))
+registry.register("housekeeping.task.create", lambda payload: create_task(payload))
+registry.register("maintenance.request", lambda payload: request_maintenance(payload))
+```
+
+### Dispatch from a run
+
+```python
+run = agent.run(input={"last_message": "Clean room 204 tomorrow"})
+run.dispatch(registry)
+```
+
+`run.dispatch(registry)` iterates over `run.actions` and calls the matching handler for each action.
+
+### Dispatch manually
+
+```python
+# Single action
+registry.dispatch({"type": "support.ticket.create", "payload": {"message": "Help!"}})
+
+# Multiple actions
+registry.dispatch_all(run.actions)
+```
+
+### Introspection
+
+```python
+registry.is_registered("support.ticket.create")  # True
+registry.action_types  # ["support.ticket.create", "housekeeping.task.create", ...]
+```
+
+## EventRegistry
+
+Routes webhook events to handler functions based on event type.
+
+### Setup
+
+```python
+from whatsrb_cloud import EventRegistry
+
+events = EventRegistry()
+
+events.on("agent_run.completed", lambda data: handle_run(data))
+events.on("message.received", lambda data: process_incoming(data))
+events.on("message.failed", lambda data: alert_failure(data))
+```
+
+### Dispatch a webhook payload
+
+```python
+events.dispatch(payload)
+# payload = {"event": "agent_run.completed", "data": {...}}
+```
+
+Returns `True` if a handler was found, `False` otherwise.
+
+### Multiple handlers
+
+An event can have multiple handlers — they all run in order:
+
+```python
+events.on("message.received", lambda data: store_message(data))
+events.on("message.received", lambda data: notify_agent(data))
+```
+
+### Introspection
+
+```python
+events.is_registered("agent_run.completed")  # True
+events.event_types  # ["agent_run.completed", "message.received", ...]
+```
+
+## FastAPI integration
+
+A typical setup:
+
+```python
+# app/deps.py
+import os
+import whatsrb_cloud
+from whatsrb_cloud import ActionRegistry, EventRegistry
+
+whatsrb_cloud.configure(api_key=os.environ["WHATSRB_API_KEY"])
+
+action_registry = ActionRegistry()
+action_registry.register("create_task", lambda p: create_task(p["description"], p["room_number"]))
+action_registry.register("create_ticket", lambda p: create_ticket(p["message"]))
+
+event_registry = EventRegistry()
+event_registry.on("agent_run.completed", lambda data: dispatch_run(data, action_registry))
+```
+
+Then in your webhook endpoint:
+
+```python
+from fastapi import FastAPI, Request, HTTPException
+from whatsrb_cloud import WebhookSignature
+from app.deps import event_registry
+import os
+
+app = FastAPI()
+
+@app.post("/webhooks/whatsrb")
+async def handle_webhook(request: Request):
+    body = await request.body()
+    signature = request.headers.get("X-Webhook-Signature", "")
+    timestamp = request.headers.get("X-Webhook-Timestamp")
+
+    if not WebhookSignature.verify(
+        payload=body.decode(),
+        secret=os.environ["WHATSRB_WEBHOOK_SECRET"],
+        signature=signature,
+        timestamp=timestamp,
+    ):
+        raise HTTPException(status_code=401)
+
+    payload = await request.json()
+    event_registry.dispatch(payload)
+    return {"ok": True}
+```

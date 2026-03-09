@@ -1,0 +1,115 @@
+---
+title: Python SDK
+description: Official Python client for the WhatsRB Cloud API.
+---
+
+## Installation
+
+```bash
+pip install whatsrb-cloud
+```
+
+## Setup
+
+```python
+import whatsrb_cloud
+
+whatsrb_cloud.configure(api_key="wrb_live_xxx")
+client = whatsrb_cloud.client()
+```
+
+Or pass the key directly:
+
+```python
+from whatsrb_cloud import WhatsrbCloud
+
+client = WhatsrbCloud("wrb_live_xxx")
+```
+
+## Quick example
+
+```python
+# Create an agent
+agent = client.agents.create(
+    name="Support Agent",
+    system_prompt="Handle customer support requests.",
+    allowed_actions=["support.refund.process", "support.ticket.create"],
+)
+
+# Run it
+run = agent.run(input="I want a refund for order ORD-1234")
+
+run.actions  # [{"type": "support.refund.process", "payload": {"order_id": "ORD-1234"}}]
+
+# Send a message via Business API
+account = client.business_accounts.list()[0]
+account.send_text(to="+33612345678", text=run.suggested_reply)
+```
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Agents" icon="bot" href="/sdks/python/agents">
+    Create AI agents, run them against messages, and handle structured actions.
+  </Card>
+  <Card title="Business Accounts" icon="building-2" href="/sdks/python/business-accounts">
+    Connect and manage WhatsApp Business accounts.
+  </Card>
+  <Card title="Business Messages" icon="message-circle" href="/sdks/python/business-messages">
+    Send text and template messages via the Business API.
+  </Card>
+  <Card title="Templates" icon="layout-template" href="/sdks/python/templates">
+    Create, sync and manage message templates.
+  </Card>
+  <Card title="Sessions" icon="smartphone" href="/sdks/python/sessions">
+    WhatsApp Web sessions (separate from Business Platform).
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/sdks/python/webhooks">
+    Register endpoints and verify signatures.
+  </Card>
+</CardGroup>
+
+## Error handling
+
+All SDK methods raise typed exceptions:
+
+```python
+from whatsrb_cloud import (
+    WhatsrbCloudError,
+    AuthenticationError,
+    NotFoundError,
+    RateLimitError,
+    ValidationError,
+    ServerError,
+)
+
+try:
+    account.send_text(to="+33612345678", text="Hello!")
+except AuthenticationError as e:
+    # Invalid API key
+    pass
+except NotFoundError as e:
+    # Account not found
+    pass
+except RateLimitError as e:
+    print(f"Retry after {e.retry_after}s")
+except ValidationError as e:
+    # Invalid parameters
+    print(e.details)
+except ServerError as e:
+    # 5xx from the API
+    pass
+except WhatsrbCloudError as e:
+    # Base class for all SDK errors
+    pass
+```
+
+| Exception | HTTP status |
+|-----------|------------|
+| `AuthenticationError` | 401 |
+| `ForbiddenError` | 403 |
+| `NotFoundError` | 404 |
+| `ConflictError` | 409 |
+| `ValidationError` | 422 |
+| `RateLimitError` | 429 |
+| `ServerError` | 5xx |
