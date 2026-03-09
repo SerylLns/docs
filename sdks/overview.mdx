@@ -1,0 +1,53 @@
+---
+title: SDKs
+description: Official client libraries for the WhatsRB Cloud API.
+---
+
+Pick your language and start sending WhatsApp messages in minutes.
+
+<CardGroup cols={3}>
+  <Card title="Python" icon="python" href="/sdks/python/overview">
+    ```bash
+    pip install whatsrb-cloud
+    ```
+  </Card>
+  <Card title="Ruby" icon="gem" href="/sdks/ruby/overview">
+    ```bash
+    gem install whatsrb_cloud
+    ```
+  </Card>
+  <Card title="TypeScript" icon="js" href="/sdks/typescript/overview">
+    ```bash
+    npm install @whatsrb/cloud
+    ```
+  </Card>
+</CardGroup>
+
+## Feature parity
+
+All three SDKs expose the same resources and objects — pick the one that matches your stack.
+
+| Feature | Python | Ruby | TypeScript |
+|---------|--------|------|------------|
+| Business Accounts | `client.business_accounts` | `client.business_accounts` | `client.businessAccounts` |
+| Send Messages | `account.send_text()` | `account.send_text()` | `account.sendText()` |
+| AI Agents | `agent.run()` | `agent.run()` | `agent.run()` |
+| Templates | `client.templates(id)` | `client.templates(id)` | `client.templates(id)` |
+| Sessions | `client.sessions` | `client.sessions` | `client.sessions` |
+| Webhooks | `WebhookSignature.verify()` | `WebhookSignature.verify?()` | `WebhookSignature.verify()` |
+| Action Registry | `ActionRegistry` | `ActionRegistry` | `ActionRegistry` |
+| Event Registry | `EventRegistry` | `EventRegistry` | `EventRegistry` |
+
+## Error handling
+
+All SDKs share the same error hierarchy mapped to HTTP status codes:
+
+| Exception | HTTP status |
+|-----------|------------|
+| `AuthenticationError` | 401 |
+| `ForbiddenError` | 403 |
+| `NotFoundError` | 404 |
+| `ConflictError` | 409 |
+| `ValidationError` | 422 |
+| `RateLimitError` | 429 |
+| `ServerError` | 5xx |

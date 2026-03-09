@@ -86,9 +86,33 @@
       {
         "tab": "SDKs",
         "icon": "code",
-        "groups": [
+        "menu": [
           {
-            "group": "Ruby",
+            "item": "Overview",
+            "icon": "book-open",
+            "pages": ["sdks/overview"]
+          },
+          {
+            "item": "Python",
+            "icon": "python",
+            "description": "pip install whatsrb-cloud",
+            "pages": [
+              "sdks/python/overview",
+              "sdks/python/installation",
+              "sdks/python/configuration",
+              "sdks/python/business-accounts",
+              "sdks/python/business-messages",
+              "sdks/python/templates",
+              "sdks/python/sessions",
+              "sdks/python/agents",
+              "sdks/python/webhooks",
+              "sdks/python/registries"
+            ]
+          },
+          {
+            "item": "Ruby",
+            "icon": "gem",
+            "description": "gem install whatsrb_cloud",
             "pages": [
               "sdks/ruby/overview",
               "sdks/ruby/installation",
@@ -103,7 +127,9 @@
             ]
           },
           {
-            "group": "TypeScript",
+            "item": "TypeScript",
+            "icon": "js",
+            "description": "npm install @whatsrb/cloud",
             "pages": [
               "sdks/typescript/overview",
               "sdks/typescript/installation",
@@ -115,21 +141,6 @@
               "sdks/typescript/agents",
               "sdks/typescript/webhooks",
               "sdks/typescript/registries"
-            ]
-          },
-          {
-            "group": "Python",
-            "pages": [
-              "sdks/python/overview",
-              "sdks/python/installation",
-              "sdks/python/configuration",
-              "sdks/python/business-accounts",
-              "sdks/python/business-messages",
-              "sdks/python/templates",
-              "sdks/python/sessions",
-              "sdks/python/agents",
-              "sdks/python/webhooks",
-              "sdks/python/registries"
             ]
           }
         ]
