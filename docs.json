@@ -58,6 +58,12 @@
             ]
           },
           {
+            "group": "Widget",
+            "pages": [
+              "guides/widget"
+            ]
+          },
+          {
             "group": "Agent & Workflows",
             "pages": [
               "guides/agents-overview",

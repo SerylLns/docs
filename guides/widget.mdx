@@ -1,0 +1,132 @@
+---
+title: Widget
+description: Embed a WhatsApp inbox on your website — your team handles conversations, your code handles business logic.
+---
+
+## Why use the Widget?
+
+WhatsRB separates **customer communication** from **business logic**:
+
+- **Your code** receives structured webhooks (orders, support tickets, bookings) and acts on them
+- **Your team** uses the Widget to read and reply to WhatsApp conversations directly from your website
+
+No need to build a messaging UI. Drop the Widget on your internal dashboard, admin panel, or support page — your team gets a real-time WhatsApp inbox, and your backend stays focused on what matters.
+
+```
+Customer sends WhatsApp message
+        │
+        ▼
+   WhatsRB Cloud
+   ┌─────────────────────────────┐
+   │  AI Agent analyzes message  │
+   │  ↓                         │
+   │  Structured webhook ────────────→  Your backend (business logic)
+   │  ↓                         │
+   │  Widget ────────────────────────→  Your team (conversation)
+   └─────────────────────────────┘
+```
+
+## Installation
+
+Add the script tag to your page and initialize:
+
+```html
+<script src="https://cdn.whatsrb.com/embed/widget.js"></script>
+<script>
+  WhatsRB.init({
+    token: 'your_embed_token',
+    baseUrl: 'https://whatsrb.com',
+  });
+</script>
+```
+
+The widget appears as a floating button in the bottom-right corner.
+
+## Get an embed token
+
+1. Go to the [WhatsRB Dashboard](https://whatsrb.com/dashboard)
+2. Navigate to **Embed Tokens**
+3. Create a token — optionally restrict it to a specific origin (e.g. `https://yourdomain.com`)
+
+<Warning>
+  Embed tokens are meant for browser use. They have limited permissions (read conversations, send messages) and cannot access your API keys, agents, or billing.
+</Warning>
+
+## Configuration
+
+```html
+<script>
+  WhatsRB.init({
+    token: 'your_embed_token',      // required
+    baseUrl: 'https://whatsrb.com', // required
+    container: '#my-inbox',          // CSS selector — omit for floating mode
+    theme: 'light',                  // 'light' | 'dark' | 'auto'
+  });
+</script>
+```
+
+### Floating mode (default)
+
+When no `container` is provided, the widget renders as a floating button with a slide-up panel. Clicking outside closes it.
+
+### Embedded mode
+
+Pass a `container` CSS selector to mount the widget inside a specific element:
+
+```html
+<div id="my-inbox" style="height: 600px;"></div>
+<script>
+  WhatsRB.init({
+    token: 'your_embed_token',
+    baseUrl: 'https://whatsrb.com',
+    container: '#my-inbox',
+  });
+</script>
+```
+
+### Themes
+
+| Theme | Description |
+|-------|-------------|
+| `light` | Light background (default) |
+| `dark` | Dark background |
+| `auto` | Follows the user's system preference |
+
+## Features
+
+### Conversations
+
+- Browse all WhatsApp conversations
+- View full message history with delivery statuses (sent, delivered, read, failed)
+- Send text messages and WhatsApp templates (with variables)
+- Start new conversations
+
+### AI suggestions
+
+If an AI agent is active on a conversation, the widget displays suggested replies in real-time. Your team can accept, dismiss, or write their own response.
+
+### Real-time updates
+
+The widget uses **Server-Sent Events (SSE)** for instant updates:
+- New messages appear immediately
+- Delivery status changes update in real-time
+- AI suggestions pop up as soon as the agent completes
+
+If SSE is unavailable (firewall, proxy), the widget falls back to polling automatically.
+
+## Origin restriction
+
+For security, you can restrict an embed token to a specific origin. The widget will only work on pages served from that origin.
+
+If no origin is set, the token works from any domain — useful for development, but not recommended for production.
+
+## Cleanup
+
+`WhatsRB.init()` returns a destroy function:
+
+```javascript
+const destroy = WhatsRB.init({ token: '...', baseUrl: '...' });
+
+// Later, to remove the widget:
+destroy();
+```
