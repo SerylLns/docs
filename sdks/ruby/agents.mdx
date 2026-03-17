@@ -184,6 +184,41 @@ run.dispatch(registry)
 
 See [Registries](/sdks/ruby/registries) for the full guide.
 
+## Action confirmation
+
+When an agent has `confirmation_mode: "confirm"`, actions require human validation before dispatch.
+
+```ruby
+# Enable confirmation mode
+agent = client.agents.update("agt_xxx",
+  confirmation_mode: "confirm",
+  confirmation_timeout_minutes: 30
+)
+
+# Run the agent
+run = agent.run(input: "I want a refund for order #1234")
+
+# Review action_statuses
+run.action_statuses  # => [{ "status" => "pending", ... }, ...]
+
+# Confirm specific actions (by index)
+run.confirm_actions([0, 2])
+
+# Reject specific actions (by index)
+run.reject_actions([1])
+
+# Or decide individually
+run.decide_actions([
+  { index: 0, status: "confirmed" },
+  { index: 1, status: "rejected" }
+])
+
+# Dispatch only executes confirmed actions
+run.dispatch(registry)
+```
+
+See [Action Confirmation](/guides/action-confirmation) for the full guide.
+
 ## Agent attributes
 
 | Attribute | Type | Description |
@@ -201,6 +236,8 @@ See [Registries](/sdks/ruby/registries) for the full guide.
 | `business_account_id` | String | Linked business account |
 | `allowed_actions` | Array | Allowed action types (empty = free-form) |
 | `payload_schema` | Array | Structured field definitions |
+| `confirmation_mode` | String | `auto` or `confirm` |
+| `confirmation_timeout_minutes` | Integer | Timeout for unconfirmed actions (default 30) |
 | `active?` | Boolean | Whether agent is active |
 
 ## AgentRun attributes
@@ -223,6 +260,8 @@ See [Registries](/sdks/ruby/registries) for the full guide.
 | `actions` | Array | Shortcut for `output["actions"]` |
 | `suggested_reply` | String | Suggested reply in customer's language |
 | `context_summary` | String | Conversation state for continuity |
+| `action_statuses` | Array | Per-action confirmation statuses (null in auto mode) |
+| `actions_decided_at` | String | Timestamp when all actions were decided |
 | `pending?` | Boolean | Status is pending |
 | `completed?` | Boolean | Status is completed |
 | `failed?` | Boolean | Status is failed |

@@ -70,6 +70,7 @@
               "guides/allowed-actions",
               "guides/structured-fields",
               "guides/conversation-context",
+              "guides/action-confirmation",
               "guides/human-takeover"
             ]
           }

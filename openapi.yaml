@@ -856,6 +856,7 @@ paths:
                           - session.disconnected
                           - session.failed
                           - agent_run.completed
+                          - agent_run.actioned
                           - agent_run.failed
                           - quota.warning
                           - quota.exceeded
@@ -1155,6 +1156,75 @@ paths:
                   data: { $ref: "#/components/schemas/AgentRun" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /agents/{agent_id}/runs/{run_id}/actions:
+    post:
+      operationId: decideRunActions
+      summary: Decide actions on a run
+      description: Confirm or reject individual actions on an agent run that requires confirmation.
+      tags:
+        - Agent Runs
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: run_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - actions
+              properties:
+                actions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - index
+                      - status
+                    properties:
+                      index:
+                        type: integer
+                        description: Zero-based index of the action in the output actions array
+                      status:
+                        type: string
+                        enum: [confirmed, rejected]
+      responses:
+        '200':
+          description: Actions decided
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      agent_id:
+                        type: string
+                      status:
+                        type: string
+                      action_statuses:
+                        $ref: '#/components/schemas/ActionStatuses'
+                      actions_decided_at:
+                        type: string
+                        format: date-time
+                        nullable: true
+        '409':
+          description: Action already decided
+        '422':
+          description: Invalid action index or status
 
   # ── Agent Templates ───────────────────────────────────────────────────────
 
@@ -1590,6 +1660,17 @@ components:
           description: Structured fields the AI must fill in the action payload. Leave empty for free-form output.
           items: { $ref: "#/components/schemas/PayloadField" }
           default: []
+        confirmation_mode:
+          type: string
+          enum: [auto, confirm]
+          default: auto
+          description: When set to "confirm", actions require human validation before execution
+        confirmation_timeout_minutes:
+          type: integer
+          default: 30
+          minimum: 1
+          maximum: 1440
+          description: Minutes before unconfirmed actions expire (only used in confirm mode)
         tools:
           type: array
           items:
@@ -1661,6 +1742,13 @@ components:
         duration_ms: { type: integer, nullable: true }
         context_summary: { type: string, nullable: true, description: "LLM-generated one-line summary of the conversation state. Used to inject context into the next agent run for the same phone number." }
         error_message: { type: string, nullable: true, description: Present when status is failed }
+        action_statuses:
+          $ref: '#/components/schemas/ActionStatuses'
+        actions_decided_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp when all actions were decided
         completed_at: { type: string, format: date-time, nullable: true }
         created_at: { type: string, format: date-time }
 
@@ -1719,6 +1807,25 @@ components:
             avg_tokens: { type: number, description: Average total tokens per completed run }
             avg_latency_ms: { type: number, description: Average LLM response time }
             avg_duration_ms: { type: number, description: Average total processing time }
+
+    ActionStatuses:
+      type: array
+      nullable: true
+      description: Per-action confirmation statuses. Null in auto mode.
+      items:
+        type: object
+        properties:
+          status:
+            type: string
+            enum: [pending, confirmed, rejected, expired]
+          decided_at:
+            type: string
+            format: date-time
+            nullable: true
+          decided_by:
+            type: string
+            nullable: true
+            description: "Who decided: widget, api, or timeout"
 
     Error:
       type: object

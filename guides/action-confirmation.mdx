@@ -1,0 +1,156 @@
+---
+title: "Action Confirmation"
+description: "Add human-in-the-loop validation for AI-proposed actions"
+---
+
+## Overview
+
+By default, agent runs complete and send a webhook immediately (mode `auto`). When you set `confirmation_mode: "confirm"` on an agent, each proposed action requires explicit human validation (confirm or reject) before you execute it.
+
+This is useful when:
+- Actions have real-world consequences (refunds, bookings, cancellations)
+- You want a human to review AI decisions before execution
+- Compliance requires an approval step
+
+## How it works
+
+<Frame>
+  <img src="/images/action-confirmation-flow.svg" alt="Action Confirmation Flow" />
+</Frame>
+
+## Setup
+
+Enable confirmation mode on an agent:
+
+<CodeGroup>
+
+```bash cURL
+curl -X PATCH https://api.whatsrb.com/api/v1/agents/agt_xxx \
+  -H "Authorization: Bearer wrb_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent": {
+      "confirmation_mode": "confirm",
+      "confirmation_timeout_minutes": 30
+    }
+  }'
+```
+
+```ruby Ruby
+client.agents.update("agt_xxx",
+  confirmation_mode: "confirm",
+  confirmation_timeout_minutes: 30
+)
+```
+
+```typescript TypeScript
+await client.agents.update("agt_xxx", {
+  confirmationMode: "confirm",
+  confirmationTimeoutMinutes: 30,
+});
+```
+
+```python Python
+client.agents.update("agt_xxx",
+  confirmation_mode="confirm",
+  confirmation_timeout_minutes=30
+)
+```
+
+</CodeGroup>
+
+## Deciding actions
+
+### Via API
+
+```bash
+curl -X POST https://api.whatsrb.com/api/v1/agents/agt_xxx/runs/run_xxx/actions \
+  -H "Authorization: Bearer wrb_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "actions": [
+      { "index": 0, "status": "confirmed" },
+      { "index": 1, "status": "rejected" }
+    ]
+  }'
+```
+
+### Via SDK
+
+<CodeGroup>
+
+```ruby Ruby
+run = agent.run(input: message, timeout: 30)
+
+# Confirm specific actions
+run.confirm_actions([0, 2])
+
+# Reject specific actions
+run.reject_actions([1])
+
+# Or decide individually
+run.decide_actions([
+  { index: 0, status: "confirmed" },
+  { index: 1, status: "rejected" }
+])
+
+# Dispatch only executes confirmed actions
+run.dispatch(registry)
+```
+
+```typescript TypeScript
+const run = await agent.run({ input: message });
+
+await run.confirmActions([0, 2]);
+await run.rejectActions([1]);
+
+// Dispatch only executes confirmed actions
+run.dispatch(registry);
+```
+
+```python Python
+run = agent.run(input=message, timeout=30)
+
+run.confirm_actions([0, 2])
+run.reject_actions([1])
+
+# Dispatch only executes confirmed actions
+run.dispatch(registry)
+```
+
+</CodeGroup>
+
+## Timeout
+
+Unconfirmed actions automatically expire after `confirmation_timeout_minutes` (default: 30 minutes, max: 1440 / 24h). Expired actions are not dispatched.
+
+## Webhook: agent_run.actioned
+
+When all actions on a run have been decided (confirmed, rejected, or expired), a `agent_run.actioned` webhook is sent:
+
+```json
+{
+  "event": "agent_run.actioned",
+  "data": {
+    "run_id": "run_xxx",
+    "agent_id": "agt_xxx",
+    "status": "completed",
+    "output": { ... },
+    "action_statuses": [
+      { "status": "confirmed", "decided_at": "2026-03-17T10:05:00Z", "decided_by": "widget" },
+      { "status": "rejected", "decided_at": "2026-03-17T10:05:00Z", "decided_by": "widget" }
+    ],
+    "actions_decided_at": "2026-03-17T10:05:00Z"
+  }
+}
+```
+
+## Embed widget
+
+When an agent uses `confirm` mode, the widget automatically shows Accept/Reject buttons for each proposed action instead of read-only chips. No widget configuration needed — the behavior is driven by the agent's `confirmation_mode`.
+
+## Backward compatibility
+
+- Default mode is `auto` — zero changes for existing setups
+- `action_statuses` is `null` in auto mode
+- `dispatch(registry)` without `action_statuses` dispatches all actions (unchanged behavior)

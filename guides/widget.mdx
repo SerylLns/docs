@@ -120,6 +120,16 @@ For security, you can restrict an embed token to a specific origin. The widget w
 
 If no origin is set, the token works from any domain — useful for development, but not recommended for production.
 
+## Action confirmation
+
+When an agent has `confirmation_mode: "confirm"`, the widget automatically adapts its behavior:
+
+- Instead of showing read-only action chips, the widget displays **Accept** and **Reject** buttons for each proposed action
+- Your team can review AI-proposed actions and decide individually
+- Once all actions are decided, a `agent_run.actioned` webhook is sent
+
+No widget configuration is needed — the behavior is driven entirely by the agent's `confirmation_mode` setting. See [Action Confirmation](/guides/action-confirmation) for the full guide.
+
 ## Cleanup
 
 `WhatsRB.init()` returns a destroy function:

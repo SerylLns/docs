@@ -195,6 +195,35 @@ run.dispatch(registry);
 
 See [Registries](/sdks/typescript/registries) for the full guide.
 
+## Action confirmation
+
+When an agent has `confirmationMode: "confirm"`, actions require human validation before dispatch.
+
+```typescript
+// Enable confirmation mode
+const agent = await client.agents.update("agt_xxx", {
+  confirmationMode: "confirm",
+  confirmationTimeoutMinutes: 30,
+});
+
+// Run the agent
+const run = await agent.run({ input: "I want a refund for order #1234" });
+
+// Review actionStatuses
+run.actionStatuses;  // [{ status: "pending", ... }, ...]
+
+// Confirm specific actions (by index)
+await run.confirmActions([0, 2]);
+
+// Reject specific actions (by index)
+await run.rejectActions([1]);
+
+// Dispatch only executes confirmed actions
+run.dispatch(registry);
+```
+
+See [Action Confirmation](/guides/action-confirmation) for the full guide.
+
 ## Agent properties
 
 | Property | Type | Description |
@@ -212,6 +241,8 @@ See [Registries](/sdks/typescript/registries) for the full guide.
 | `businessAccountId` | string | Linked business account |
 | `allowedActions` | string[] | Allowed action types (empty = free-form) |
 | `payloadSchema` | PayloadSchemaField[] | Structured field definitions |
+| `confirmationMode` | string | `auto` or `confirm` |
+| `confirmationTimeoutMinutes` | number | Timeout for unconfirmed actions (default 30) |
 | `isActive` | boolean | Whether agent is active |
 | `isAutoRun` | boolean | Whether auto-run is enabled |
 
@@ -235,6 +266,8 @@ See [Registries](/sdks/typescript/registries) for the full guide.
 | `actions` | object[] | Shortcut for `output.actions` |
 | `suggestedReply` | string | Suggested reply in customer's language |
 | `contextSummary` | string | Conversation state for continuity |
+| `actionStatuses` | object[] | Per-action confirmation statuses (null in auto mode) |
+| `actionsDecidedAt` | string | Timestamp when all actions were decided |
 | `isPending` | boolean | Status is pending |
 | `isCompleted` | boolean | Status is completed |
 | `isFailed` | boolean | Status is failed |

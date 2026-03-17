@@ -29,6 +29,7 @@ Message received (WhatsApp)
   → AgentRunner (1 LLM call → structured output)
   → Context saved (context_summary for next message)
   → WebhookDispatcher (agent_run.completed → your backend)
+  → [If confirmation_mode: "confirm"] Widget/API confirms → agent_run.actioned
 ```
 
 **2 LLM calls** per message. Cost: ~$0.0004 with gpt-4o-mini.
@@ -50,6 +51,8 @@ agent = client.agents.create(
   auto_run_inbound: true,          # process inbound messages automatically
   debounce_seconds: 10,            # batch fast messages
   context_ttl_minutes: 60,         # remember conversation for 1 hour
+  confirmation_mode: "confirm",     # require human approval before execution
+  confirmation_timeout_minutes: 30, # auto-expire unconfirmed actions
   allowed_actions: [               # constrain output types
     "hospitality.booking.modify",
     "hospitality.room_service.request",
@@ -77,6 +80,9 @@ agent = client.agents.create(
   </Card>
   <Card title="Human Takeover" icon="hand" href="/guides/human-takeover">
     Pause the agent per-conversation when a human needs to respond. Auto-expires, auto-extends on outbound messages.
+  </Card>
+  <Card title="Action Confirmation" icon="circle-check" href="/guides/action-confirmation">
+    Require human approval before executing AI-proposed actions. Accept or reject each action individually via widget or API.
   </Card>
 </CardGroup>
 
